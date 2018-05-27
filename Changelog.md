@@ -8,7 +8,6 @@ How to update your code:
  * Explicitly state the storage location for local variables of struct and array types, e.g. change ``uint[] x = m_x`` to ``uint[] storage x = m_x``.
  * Explicitly convert values of contract type to addresses before using an ``address`` member. Example: if ``c`` is a contract, change ``c.transfer(...)`` to ``address(c).transfer(...)``.
 
-
 Breaking Changes:
  * ABI Encoder: Properly pad data from calldata (``msg.data`` and external function parameters). Use ``abi.encodePacked`` for unpadded encoding.
  * Code Generator: Signed right shift uses proper arithmetic shift, i.e. rounding towards negative infinity. Warning: this may silently change the semantics of existing code!
