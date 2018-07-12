@@ -63,17 +63,6 @@ has it (which includes `Remix <https://remix.ethereum.org/>`_), then
 ``contractname.kill.sendTransaction({from:eth.coinbase})``, just the same as my
 examples.
 
-Can you return an array or a ``string`` from a solidity function call?
-======================================================================
-
-Yes. See `array_receiver_and_returner.sol <https://github.com/fivedogit/solidity-baby-steps/blob/master/contracts/60_array_receiver_and_returner.sol>`_.
-
-What is problematic, though, is returning any variably-sized data (e.g. a
-variably-sized array like ``uint[]``) from a function **called from within Solidity**.
-This is a limitation of the EVM and will be solved with the next protocol update.
-
-Returning variably-sized data as part of an external transaction or call is fine.
-
 Is it possible to in-line initialize an array like so: ``string[] myarray = ["a", "b"];``
 =========================================================================================
 
@@ -90,11 +79,6 @@ Example::
             return ([1, 2, 3, 4, 5]);
         }
     }
-
-Can a contract function return a ``struct``?
-============================================
-
-Yes, but only in ``internal`` function calls.
 
 If I return an ``enum``, I only get integer values in web3.js. How to get the named values?
 ===========================================================================================
@@ -130,15 +114,6 @@ Examples::
 
 How do structs work?
 ====================
-
-See `struct_and_for_loop_tester.sol <https://github.com/fivedogit/solidity-baby-steps/blob/master/contracts/65_struct_and_for_loop_tester.sol>`_.
-
-How do for loops work?
-======================
-
-Very similar to JavaScript. Such as the following example:
-
-``for (uint i = 0; i < a.length; i ++) { a[i] = i; }``
 
 See `struct_and_for_loop_tester.sol <https://github.com/fivedogit/solidity-baby-steps/blob/master/contracts/65_struct_and_for_loop_tester.sol>`_.
 
@@ -229,20 +204,6 @@ Are comments included with deployed contracts and do they increase deployment ga
 
 No, everything that is not needed for execution is removed during compilation.
 This includes, among others, comments, variable names and type names.
-
-What happens if you send ether along with a function call to a contract?
-========================================================================
-
-It gets added to the total balance of the contract, just like when you send ether when creating a contract.
-You can only send ether along to a function that has the ``payable`` modifier,
-otherwise an exception is thrown.
-
-Is it possible to get a tx receipt for a transaction executed contract-to-contract?
-===================================================================================
-
-No, a function call from one contract to another does not create its own transaction,
-you have to look in the overall transaction. This is also the reason why several
-block explorer do not show Ether sent between contracts correctly.
 
 What is the ``memory`` keyword? What does it do?
 ================================================
@@ -398,12 +359,6 @@ In this example::
         }
     }
 
-Can a contract function accept a two-dimensional array?
-=======================================================
-
-This is not yet implemented for external calls and dynamic arrays -
-you can only use one level of dynamic arrays.
-
 What is the relationship between ``bytes32`` and ``string``? Why is it that ``bytes32 somevar = "stringliteral";`` works and what does the saved 32-byte hex value mean?
 ========================================================================================================================================================================
 
@@ -501,11 +456,6 @@ For example, ``int8[][5] somearray;`` are 5 dynamic ``int8`` arrays.
 The reason for this is that ``T[5]`` is always an array of 5 ``T``'s,
 no matter whether ``T`` itself is an array or not (this is not the
 case in C or Java).
-
-Is it possible to return an array of strings (``string[]``) from a Solidity function?
-=====================================================================================
-
-Not yet, as this requires two levels of dynamic arrays (``string`` is a dynamic array itself).
 
 If you issue a call for an array, it is possible to retrieve the whole array? Or must you write a helper function for that?
 ===========================================================================================================================
