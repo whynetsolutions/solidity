@@ -29,7 +29,7 @@ something like::
     }
 
 ...note::
-    A function cannot accept a multi-dimensional array as an input parameter. This functionality is possible if you enable the experimental ``ABIEncoderV2`` feature by adding ``pragma experimental ABIEncoderV2;`` to your smart contract.
+    A function cannot accept a multi-dimensional array as an input parameter. This functionality is possible if you enable the new experimental ``ABIEncoderV2`` feature by adding ``pragma experimental ABIEncoderV2;`` to your source file. This feature introduces other experimental changes that you can read more about in the ABI_ guide.
 
 Output Parameters
 -----------------
@@ -64,21 +64,31 @@ Input parameters and output parameters can be used as expressions in
 the function body.  There, they are also usable in the left-hand side
 of assignment.
 
-.. index:: return array, return string, array, string, array of strings, dynamic array, variable sized array
+.. index:: return array, return string, array, string, array of strings, dynamic array, variably sized array
 
 .. _return-array:
 
 Returning Strings and Arrays
-----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can return strings and arrays from Solidity functions, see `array_receiver_and_returner.sol <https://github.com/fivedogit/solidity-baby-steps/blob/master/contracts/60_array_receiver_and_returner.sol>`_ for an example.
+You can return strings and arrays from Solidity functions, for example::
+
+  function getArray() constant returns (uint8[10])
+  {
+    uint8[10] integers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    return integers;
+  }
+
+  function getMyString() returns (string) {
+    return "hello";
+  }
 
 .. index:: return struct, struct
 
 .. _return-struct:
 
 Returning Structs
------------------
+^^^^^^^^^^^^^^^^^
 
 You can return a ``struct`` from a Solidity function, but only from ``internal`` function calls.
 
@@ -87,20 +97,17 @@ You can return a ``struct`` from a Solidity function, but only from ``internal``
 Control Structures
 ===================
 
-Supported Expressions
----------------------
+Most of the control structures of curly-bracket languages such as JavaScript or C are available in Solidity except for ``switch`` and ``goto``. The full list is:
 
-Most of the `control structures from JavaScript <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Control_flow_and_error_handling>`_ are available in Solidity except for ``switch`` and ``goto``. The full list is:
-
-- ``if``
-- ``else``
-- ``while``
-- ``do``
-- ``for``
+- ``if (<condition>) {<true-statement>}``
+- ``if (<condition>) {<true-statement>} else {<false-statement>}``
+- ``while (<condition-true>) {<true-statement>}``
+- ``do {<true-statement>} (while <condition-true>)``
+- ``for (<initial-state>;<final-state>;<iterator>) {<true-statement>}``
 - ``break``
 - ``continue``
-- ``return``
-- ``? :``
+- ``return <value>``
+- ``(if <condition>) ? (<true-statement>) : (<false-statement>)`` (*Conditional or ternary operator, shorthand for ``if else``*)
 
 All with the usual semantics from C or JavaScript, with the following caveats.
 
@@ -144,13 +151,13 @@ The expressions ``this.g(8);`` and ``c.g(2);`` (where ``c`` is a contract
 instance) are also valid function calls, but this time, the function
 will be called "externally", via a message call and not directly via jumps.
 
-...note::
-     You cannot use function calls on ``this`` in the constructor, as the actual contract has not been created yet.
+..note::
+  While it's possible to use ``address(this)`` to retrieve the address of the contract in the constructor, as the actual contract has not been created yet, you should not use ``this`` for anything else.
 
 Functions of other contracts have to be called externally. For an external call,
 all function arguments have to be copied to memory.
 
-When calling functions of other contracts, you can specify the amount of Wei sent with the call with the special options ``.value()`` and ``.gas()``, respectively. Any Wei you send to the contract is added to the total balance of the contract::
+When calling functions of other contracts, you can specify the amount of Wei or gas sent with the call with the special options ``.value()`` and ``.gas()``, respectively. Any Wei you send to the contract is added to the total balance of the contract::
 
     pragma solidity ^0.4.0;
 
@@ -195,7 +202,7 @@ throws an exception or goes out of gas.
     so your contract is not vulnerable to a reentrancy exploit.
 
 ...note::
-    A function call from one contract to another does not create its own transaction, it is a message call as part of the overall transaction. This is also why several block explorer do not show Ether sent between contracts correctly.
+    A function call from one contract to another does not create its own transaction, it is a message call as part of the overall transaction.
 
 Named Calls and Anonymous Function Parameters
 ---------------------------------------------
@@ -352,7 +359,7 @@ until the end of a ``{ }``-block. As an exception to this rule, variables declar
 initialization part of a for-loop are only visible until the end of the for-loop.
 
 Variables and other items declared outside of a code block, for example functions, contracts,
-user-defined types, etc., do not change their scoping behavior. This means you can
+user-defined types, etc., do not change their scoping behaviour. This means you can
 use state variables before they are declared and call functions recursively.
 
 As a consequence, the following examples will compile without warnings, since
