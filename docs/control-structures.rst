@@ -31,6 +31,8 @@ something like::
 ...note::
     A function cannot accept a multi-dimensional array as an input parameter. This functionality is possible if you enable the new experimental ``ABIEncoderV2`` feature by adding ``pragma experimental ABIEncoderV2;`` to your source file. This feature introduces other experimental changes that you can read more about in the ABI_ guide.
 
+.. index:: return array, return string, array, string, array of strings, dynamic array, variably sized array, return struct, struct
+
 Output Parameters
 -----------------
 
@@ -64,33 +66,8 @@ Input parameters and output parameters can be used as expressions in
 the function body.  There, they are also usable in the left-hand side
 of assignment.
 
-.. index:: return array, return string, array, string, array of strings, dynamic array, variably sized array
-
-.. _return-array:
-
-Returning Strings and Arrays
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-You can return strings and arrays from Solidity functions, for example::
-
-  function getArray() constant returns (uint8[10])
-  {
-    uint8[10] integers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    return integers;
-  }
-
-  function getMyString() returns (string) {
-    return "hello";
-  }
-
-.. index:: return struct, struct
-
-.. _return-struct:
-
-Returning Structs
-^^^^^^^^^^^^^^^^^
-
-You can return a ``struct`` from a Solidity function, but only from ``internal`` function calls.
+...note::
+    You can return all types from Solidity functions, but for structs, only from ``internal`` function calls. You can return ``memory`` structs from any function if you enable the new experimental ``ABIEncoderV2`` feature by adding ``pragma experimental ABIEncoderV2;`` to your source file. This feature introduces other experimental changes that you can read more about in the ABI_ guide.
 
 .. index:: if, else, while, do/while, for, break, continue, return, switch, goto
 
