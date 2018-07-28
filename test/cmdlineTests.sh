@@ -103,6 +103,8 @@ do
     then
         echo " - $dir"
         cd "$dir"
+        # Replace version pragmas
+        find . test -name '*.sol' -type f -print0 | xargs -0 sed -i -e 's/pragma solidity [^;]+/pragma solidity ^0/'
         compileFull *.sol */*.sol
         cd ..
     fi
