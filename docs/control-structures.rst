@@ -57,7 +57,7 @@ write::
 The names of output parameters can be omitted.
 The output values can also be specified using ``return`` statements.
 
-The ``return`` statements are also capable of returning multiple values using ``return (v0, v1, ..., vn)``. The number of parameters must equal the number of output parameters.
+The ``return`` statements are also capable of returning multiple values using ``return (v0, v1, ..., vn)``. The number of parameters must equal the number of output parameters and they must all be the same type.
 
 Return parameters are initialized to zero; if they are not explicitly
 set, they stay to be zero.
@@ -74,24 +74,28 @@ of assignment.
 Control Structures
 ===================
 
-Most of the control structures of curly-bracket languages such as JavaScript or C are available in Solidity except for ``switch`` and ``goto``. The full list is:
+Most of the control structures of curly-braces languages such as JavaScript or C are available in Solidity except for ``switch`` and ``goto``. The full list is:
 
-- ``if (<condition>) {<true-statement>}``
-- ``if (<condition>) {<true-statement>} else {<false-statement>}``
-- ``while (<condition-true>) {<true-statement>}``
+- ``if (<condition>) {<true-branch>}``
+  - **Alternative syntax**: ``if (<condition>) <true-statement>``
+- ``if (<condition>) {<true-branch>} else {<false-branch>}``
+  - **Alternative syntax**: ``if (<condition>) <true-statement> else <false-statement>``
+- ``while (<condition-true>) {<true-branch>}``
 - ``do {<true-statement>} (while <condition-true>)``
-- ``for (<initial-state>;<final-state>;<iterator>) {<true-statement>}``
+- ``for (<initialiser>;<condition>;<iterator>) {<true-branch>}``
 - ``break``
 - ``continue``
 - ``return <value>``
-- ``(if <condition>) ? (<true-statement>) : (<false-statement>)`` (*Conditional or ternary operator, shorthand for ``if else``*)
+- ``(if <condition>) ? (<true-expression>) : (<false-expression>)`` (*Conditional or ternary operator, shorthand for ``if else``*)
 
 All with the usual semantics from C or JavaScript, with the following caveats.
 
 Conditional Values
 ------------------
 
-You *cannot* omit parentheses for conditionals, but you can omit curly braces around single-statement bodies.
+Parentheses for conditionals are *not* optional, but bodies in branches can
+either be curly-braces-delimited blocks or single statements (without curly
+braces).
 
 There is no type conversion from non-boolean to boolean types as in C and JavaScript, so ``if (1) { ... }`` is *not* valid
 Solidity.
@@ -128,14 +132,21 @@ The expressions ``this.g(8);`` and ``c.g(2);`` (where ``c`` is a contract
 instance) are also valid function calls, but this time, the function
 will be called "externally", via a message call and not directly via jumps.
 
-..note::
-  While it's possible to use ``address(this)`` to retrieve the address of the contract in the constructor, as the actual contract has not been created yet, you should not use ``this`` for anything else.
+..warning::
+  While it's possible to use ``address(this)`` to retrieve the address of the
+  contract in the constructor, as the actual contract has not been created yet.
+  You should be especially careful when using this in functions called from the
+  ``constructor`` or when passing this to other contracts during the
+  construction phase, as calls back into the contract do not work. you should
+  not use ``this`` for anything else.
 
 Functions of other contracts have to be called externally. For an external call,
 all function arguments have to be copied to memory.
 
-When calling functions of other contracts, you can specify the amount of Wei or gas sent with the call with the special options ``.value()`` and ``.gas()``, respectively. Any Wei you send to the contract is added to the total balance of the contract::
+When calling functions of other contracts, you can specify the amount of Wei or gas sent with the call with the special options ``.value()`` and ``.gas()``, respectively. Any Wei you send to the contract is added to the total balance of the contract:
 
+::
+  
     pragma solidity ^0.4.0;
 
     contract InfoFeed {
