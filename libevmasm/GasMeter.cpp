@@ -258,4 +258,15 @@ unsigned GasMeter::runGas(Instruction _instruction)
 	return 0;
 }
 
-
+u256 GasMeter::dataGas(bytes const& _data, bool _inCreation)
+{
+	if (_inCreation)
+	{
+		bigint gas = 0;
+		for (auto b: _data)
+			gas += (b != 0) ? GasCosts::txDataNonZeroGas : GasCosts::txDataZeroGas;
+		assertThrow(gas <= bigint(u256(-1)), OptimizerException, "Gas cost exceeds 256 bits.");
+		return u256(gas);
+	}
+	return GasCosts::createDataGas * _data.size();
+}
