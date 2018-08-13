@@ -1013,7 +1013,9 @@ The full contract
 
 
 .. note::
-  The function ``splitSignature`` is very simple and does not use all security checks. A real implementation should use a more rigorously tested library, such as openzepplin's `version <https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/ECRecovery.sol>`_ of this code.
+  The function ``splitSignature`` is simple and does not use all security
+  checks. A real implementation should use a more rigorously tested library,
+  such as openzepplin's `version  <https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/ECRecovery.sol>`_ of this code.
 
 Verifying Payments
 ------------------
