@@ -44,6 +44,48 @@ If ``solc`` is called with the option ``--link``, all input files are interprete
 
 If ``solc`` is called with the option ``--standard-json``, it will expect a JSON input (as explained below) on the standard input, and return a JSON output on the standard output.
 
+.. _compiler-version:
+.. index:: ! compiler version, compile version
+
+Setting the compiler version
+******************************
+
+When you compile your contract code you can specify the compiler version to target or avoid particular features or behaviours in the release.
+
+.. warning::
+
+   Compiling for the wrong EVM version can result in wrong, strange and failing
+   behaviour. Please ensure, especially if running a private chain, that you
+   use the correct EVM version.
+
+You use the ``--evm-version`` option on the command line:
+
+.. code-block:: shell
+
+  solc   --evm-version <VERSION> contract.sol
+
+Or if using :ref:`JSON description format <compiler-api>`, with the ``evmVersion`` key:
+
+.. code-block:: json
+
+  {
+    "evmVersion": "<VERSION>"
+  }
+
+Compiler target options
+-----------------------
+
+- homestead
+- tangerineWhistle
+- spuriousDragon
+- byzantium (**default**)
+- constantinople
+
+.. note::
+
+  Backward compatibility might exist between different EVM versions, but it is
+  up to the developer to figure out what they are.
+
 .. _compiler-api:
 
 Compiler Input and Output JSON Description
