@@ -917,25 +917,26 @@ assigning it to a local variable, as in
 Mappings
 ========
 
-Mapping types are declared as ``mapping(_KeyType => _ValueType)``.
-Here ``_KeyType`` can be almost any type except for a mapping, a dynamically sized array, a contract, a function, an enum and a struct.
-``_ValueType`` can actually be any type, including mappings.
+You declare mapping types with the syntax ``mapping(_KeyType => _ValueType)``.
+The ``_KeyType`` can be any type except for a mapping, a dynamically sized
+byte array (a dynamically sized string array is valid), a contract, a function,
+an enum and a struct. ``_ValueType`` can be any type, including mappings.
 
-Mappings can be seen as `hash tables <https://en.wikipedia.org/wiki/Hash_table>`_ which are virtually initialized such that
-every possible key exists and is mapped to a value whose byte-representation is
-all zeros: a type's :ref:`default value <default-value>`. The similarity ends here, though: The key data is not actually stored
-in a mapping, only its ``keccak256`` hash used to look up the value.
+You can think of mappings as `hash tables <https://en.wikipedia.org/wiki/Hash_table>`_, which are virtually initialized
+such that every possible key exists and is mapped to a value whose
+byte-representation is all zeros, a type's :ref:`default value <default-value>`. The similarity ends there, the key data is not stored in a
+mapping, only its ``keccak256`` hash is used to look up the value.
 
-Because of this, mappings do not have a length or a concept of a key or value being "set".
+Because of this, mappings do not have a length or a concept of a "set" key or
+value.
 
-Mappings are only allowed for state variables (or as storage reference types
+Mappings are **only** allowed for state variables (or as storage reference types
 in internal functions).
 
-It is possible to mark mappings ``public`` and have Solidity create a :ref:`getter <visibility-and-getters>`.
-The ``_KeyType`` will become a required parameter for the getter and it will
-return ``_ValueType``.
+It is possible to mark mappings ``public`` and Solidity creates a :ref:`getter <visibility-and-getters>` for you. The ``_KeyType`` becomes a required
+parameter for the getter and it returns ``_ValueType``.
 
-The ``_ValueType`` can be a mapping too. The getter will have one parameter
+You can also make ``_ValueType`` a mapping. The getter will have one parameter
 for each ``_KeyType``, recursively.
 
 ::
@@ -960,8 +961,8 @@ for each ``_KeyType``, recursively.
 
 
 .. note::
-  Mappings are not iterable, but it is possible to implement a data structure on top of them.
-  For an example, see `iterable mapping <https://github.com/ethereum/dapp-bin/blob/master/library/iterable_mapping.sol>`_.
+  Mappings are not iterable, but it is possible to implement a data structure
+  on top of them. For an example, see `iterable mapping <https://github.com/ethereum/dapp-bin/blob/master/library/iterable_mapping.sol>`_.
 
 .. index:: assignment, ! delete, lvalue
 
