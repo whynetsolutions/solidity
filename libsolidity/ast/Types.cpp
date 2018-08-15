@@ -617,11 +617,11 @@ MemberList::MemberMap IntegerType::nativeMembers(ContractDefinition const*) cons
 	if (isAddress())
 		return {
 			{"balance", make_shared<IntegerType>(256)},
-			{"call", make_shared<FunctionType>(strings{"bytes memory"}, strings{"bool"}, FunctionType::Kind::BareCall, false, StateMutability::Payable)},
-			{"callcode", make_shared<FunctionType>(strings{"bytes memory"}, strings{"bool"}, FunctionType::Kind::BareCallCode, false, StateMutability::Payable)},
-			{"delegatecall", make_shared<FunctionType>(strings{"bytes memory"}, strings{"bool"}, FunctionType::Kind::BareDelegateCall, false)},
+			{"call", make_shared<FunctionType>(strings{"bytes memory"}, strings{"bool", "bytes memory"}, FunctionType::Kind::BareCall, false, StateMutability::Payable)},
+			{"callcode", make_shared<FunctionType>(strings{"bytes memory"}, strings{"bool", "bytes memory"}, FunctionType::Kind::BareCallCode, false, StateMutability::Payable)},
+			{"delegatecall", make_shared<FunctionType>(strings{"bytes memory"}, strings{"bool", "bytes memory"}, FunctionType::Kind::BareDelegateCall, false)},
 			{"send", make_shared<FunctionType>(strings{"uint"}, strings{"bool"}, FunctionType::Kind::Send)},
-			{"staticcall", make_shared<FunctionType>(strings{"bytes memory"}, strings{"bool"}, FunctionType::Kind::BareStaticCall, false, StateMutability::View)},
+			{"staticcall", make_shared<FunctionType>(strings{"bytes memory"}, strings{"bool", "bytes memory"}, FunctionType::Kind::BareStaticCall, false, StateMutability::View)},
 			{"transfer", make_shared<FunctionType>(strings{"uint"}, strings(), FunctionType::Kind::Transfer)}
 		};
 	else

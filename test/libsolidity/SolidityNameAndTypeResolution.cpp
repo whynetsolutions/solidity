@@ -437,7 +437,7 @@ BOOST_AUTO_TEST_CASE(address_staticcall)
 {
 	char const* sourceCode = R"(
 		contract C {
-			function f() public view returns(bool) {
+			function f() public view returns(bool, bytes memory) {
 				return address(0x4242).staticcall("");
 			}
 		}
