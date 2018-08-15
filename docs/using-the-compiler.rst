@@ -44,13 +44,14 @@ If ``solc`` is called with the option ``--link``, all input files are interprete
 
 If ``solc`` is called with the option ``--standard-json``, it will expect a JSON input (as explained below) on the standard input, and return a JSON output on the standard output.
 
-.. _compiler-version:
-.. index:: ! compiler version, compile version
+.. _evm-version:
+.. index:: ! EVM version, compile version
 
-Setting the compiler version
-******************************
+Setting the EVM version to target
+*********************************
 
-When you compile your contract code you can specify the compiler version to target or avoid particular features or behaviours in the release.
+When you compile your contract code you can specify the Ethereum virtual machine
+version to compile for to avoid particular features or behaviours in the release.
 
 .. warning::
 
@@ -64,7 +65,7 @@ You use the ``--evm-version`` option on the command line:
 
   solc   --evm-version <VERSION> contract.sol
 
-Or if using :ref:`JSON description format <compiler-api>`, with the ``evmVersion`` key:
+Or if using :ref:`JSON input <compiler-api>`, with the ``evmVersion`` key:
 
 .. code-block:: json
 
@@ -72,8 +73,8 @@ Or if using :ref:`JSON description format <compiler-api>`, with the ``evmVersion
     "evmVersion": "<VERSION>"
   }
 
-Compiler target options
------------------------
+Target options
+--------------
 
 - homestead
 - tangerineWhistle
