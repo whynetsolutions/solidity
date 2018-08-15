@@ -2019,23 +2019,22 @@ void ExpressionCompiler::appendExternalFunctionCall(
 		// case we're only interested in the success condition, not the return data.
 		if (!_functionType.returnParameterTypes().empty())
 		{
-			utils().fetchFreeMemoryPointer();
 			if (haveReturndatacopy)
+			{
+				m_context << Instruction::RETURNDATASIZE;
 				m_context.appendInlineAssembly(R"({
-                    switch returndatasize() case 0 {
-                        mstore(return_data_start, 0)
-				        mstore(0x40, add(return_data_start, 0x20))
-                    } default {
-				        mstore(0x40, add(return_data_start, and(add(returndatasize(), 0x3f), not(0x1f))))
-                        mstore(return_data_start, returndatasize())
-				        returndatacopy(add(return_data_start, 0x20), 0, returndatasize())
-                    }
-			    })", {"return_data_start"});
+					switch v case 0 {
+						v := 0x60
+					} default {
+						v := mload(0x40)
+						mstore(0x40, add(v, and(add(returndatasize(), 0x3f), not(0x1f))))
+						mstore(v, returndatasize())
+						returndatacopy(add(v, 0x20), 0, returndatasize())
+					}
+			    })", {"v"});
+			}
 			else
-				m_context.appendInlineAssembly(R"({
-                        mstore(return_data_start, 0)
-				        mstore(0x40, add(return_data_start, 0x20))
-			    })", {"return_data_start"});
+				utils().pushZeroPointer();
 		}
 	}
 	else if (funKind == FunctionType::Kind::RIPEMD160)
