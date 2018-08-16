@@ -2496,7 +2496,15 @@ TypePointers FunctionType::returnParameterTypesWithoutDynamicTypes() const
 {
 	TypePointers returnParameterTypes = m_returnParameterTypes;
 
-	if (m_kind == Kind::External || m_kind == Kind::CallCode || m_kind == Kind::DelegateCall)
+	if (
+		m_kind == Kind::External ||
+		m_kind == Kind::CallCode ||
+		m_kind == Kind::DelegateCall ||
+		m_kind == Kind::BareCall ||
+		m_kind == Kind::BareCallCode ||
+		m_kind == Kind::BareDelegateCall ||
+		m_kind == Kind::BareStaticCall
+	)
 		for (auto& param: returnParameterTypes)
 			if (param->isDynamicallySized() && !param->dataStoredIn(DataLocation::Storage))
 				param = make_shared<InaccessibleDynamicType>();

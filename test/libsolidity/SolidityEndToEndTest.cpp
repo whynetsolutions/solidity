@@ -3586,8 +3586,7 @@ BOOST_AUTO_TEST_CASE(default_fallback_throws)
 	char const* sourceCode = R"YY(
 		contract A {
 			function f() public returns (bool) {
-				(bool success, bytes memory data) = address(this).call("");
-				assert(data.length == 0);
+				(bool success,) = address(this).call("");
 				return success;
 			}
 		}
@@ -4604,21 +4603,21 @@ BOOST_AUTO_TEST_CASE(call_forward_bytes_length)
 			receiver rec;
 			constructor() public { rec = new receiver(); }
 			function viaCalldata() public returns (uint) {
-				(bool success, bytes memory data) = address(rec).call(msg.data);
-				require(success && data.length == 0);
+				(bool success,) = address(rec).call(msg.data);
+				require(success);
 				return rec.calledLength();
 			}
 			function viaMemory() public returns (uint) {
 				bytes memory x = msg.data;
-				(bool success, bytes memory data) = address(rec).call(x);
-				require(success && data.length == 0);
+				(bool success,) = address(rec).call(x);
+				require(success);
 				return rec.calledLength();
 			}
 			bytes s;
 			function viaStorage() public returns (uint) {
 				s = msg.data;
-				(bool success, bytes memory data) = address(rec).call(s);
-				require(success && data.length == 0);
+				(bool success,) = address(rec).call(s);
+				require(success);
 				return rec.calledLength();
 			}
 		}
@@ -10344,8 +10343,8 @@ BOOST_AUTO_TEST_CASE(mutex)
 				// NOTE: It is very bad practice to write this function this way.
 				// Please refer to the documentation of how to do this properly.
 				if (amount > shares) revert();
-				(bool success, bytes memory data) = msg.sender.call.value(amount)("");
-				require(success && data.length == 0);
+				(bool success,) = msg.sender.call.value(amount)("");
+				require(success);
 				shares -= amount;
 				return shares;
 			}
@@ -10353,8 +10352,8 @@ BOOST_AUTO_TEST_CASE(mutex)
 				// NOTE: It is very bad practice to write this function this way.
 				// Please refer to the documentation of how to do this properly.
 				if (amount > shares) revert();
-				(bool success, bytes memory data) = msg.sender.call.value(amount)("");
-				require(success && data.length == 0);
+				(bool success,) = msg.sender.call.value(amount)("");
+				require(success);
 				shares -= amount;
 				return shares;
 			}
@@ -12474,17 +12473,19 @@ BOOST_AUTO_TEST_CASE(bare_call_invalid_address)
 	char const* sourceCode = R"YY(
 		contract C {
 			/// Calling into non-existant account is successful (creates the account)
-			function f() external returns (bool, bytes memory) {
-				return address(0x4242).call("");
+			function f() external returns (bool) {
+				(bool success,) = address(0x4242).call("");
+				return success;
 			}
-			function h() external returns (bool, bytes memory) {
-				return address(0x4242).delegatecall("");
+			function h() external returns (bool) {
+				(bool success,) = address(0x4242).delegatecall("");
+				return success;
 			}
 		}
 	)YY";
 	compileAndRun(sourceCode, 0, "C");
-	ABI_CHECK(callContractFunction("f()"), encodeArgs(u256(1), 0x40, 0x00));
-	ABI_CHECK(callContractFunction("h()"), encodeArgs(u256(1), 0x40, 0x00));
+	ABI_CHECK(callContractFunction("f()"), encodeArgs(u256(1)));
+	ABI_CHECK(callContractFunction("h()"), encodeArgs(u256(1)));
 
 	if (dev::test::Options::get().evmVersion().hasStaticCall())
 	{
@@ -12502,39 +12503,78 @@ BOOST_AUTO_TEST_CASE(bare_call_invalid_address)
 
 BOOST_AUTO_TEST_CASE(delegatecall_return_value)
 {
-	char const* sourceCode = R"DELIMITER(
-		contract C {
-			uint value;
-			function set(uint _value) external {
-				value = _value;
+	if (dev::test::Options::get().evmVersion().supportsReturndata())
+	{
+		char const* sourceCode = R"DELIMITER(
+			contract C {
+				uint value;
+				function set(uint _value) external {
+					value = _value;
+				}
+				function get() external view returns (uint) {
+					return value;
+				}
+				function get_delegated() external returns (bool, bytes memory) {
+					return address(this).delegatecall(abi.encodeWithSignature("get()"));
+				}
+				function assert0() external view {
+					assert(value == 0);
+				}
+				function assert0_delegated() external returns (bool, bytes memory) {
+					return address(this).delegatecall(abi.encodeWithSignature("assert0()"));
+				}
 			}
-			function get() external view returns (uint) {
-				return value;
+		)DELIMITER";
+		compileAndRun(sourceCode, 0, "C");
+		ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(0)));
+		ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(1), 0x40, 0x00));
+		ABI_CHECK(callContractFunction("get_delegated()"), encodeArgs(u256(1), 0x40, 0x20, 0x00));
+		ABI_CHECK(callContractFunction("set(uint256)", u256(1)), encodeArgs());
+		ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(1)));
+		ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(0), 0x40, 0x00));
+		ABI_CHECK(callContractFunction("get_delegated()"), encodeArgs(u256(1), 0x40, 0x20, 1));
+		ABI_CHECK(callContractFunction("set(uint256)", u256(42)), encodeArgs());
+		ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(42)));
+		ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(0), 0x40, 0x00));
+		ABI_CHECK(callContractFunction("get_delegated()"), encodeArgs(u256(1), 0x40, 0x20, 42));
+	}
+	else
+	{
+		char const* sourceCode = R"DELIMITER(
+			contract C {
+				uint value;
+				function set(uint _value) external {
+					value = _value;
+				}
+				function get() external view returns (uint) {
+					return value;
+				}
+				function get_delegated() external returns (bool) {
+					(bool success,) = address(this).delegatecall(abi.encodeWithSignature("get()"));
+					return success;
+				}
+				function assert0() external view {
+					assert(value == 0);
+				}
+				function assert0_delegated() external returns (bool) {
+					(bool success,) = address(this).delegatecall(abi.encodeWithSignature("assert0()"));
+					return success;
+				}
 			}
-			function get_delegated() external returns (bool, bytes memory) {
-				return address(this).delegatecall(abi.encodeWithSignature("get()"));
-			}
-			function assert0() external view {
-				assert(value == 0);
-			}
-			function assert0_delegated() external returns (bool, bytes memory) {
-				return address(this).delegatecall(abi.encodeWithSignature("assert0()"));
-			}
-		}
-	)DELIMITER";
-	compileAndRun(sourceCode, 0, "C");
-	bool hasReturnData = dev::test::Options::get().evmVersion().supportsReturndata();
-	ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(0)));
-	ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(1), 0x40, 0x00));
-	ABI_CHECK(callContractFunction("get_delegated()"), hasReturnData ? encodeArgs(u256(1), 0x40, 0x20, 0x00) : encodeArgs(u256(1), 0x40, 0x00));
-	ABI_CHECK(callContractFunction("set(uint256)", u256(1)), encodeArgs());
-	ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(1)));
-	ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(0), 0x40, 0x00));
-	ABI_CHECK(callContractFunction("get_delegated()"), hasReturnData ? encodeArgs(u256(1), 0x40, 0x20, 1) : encodeArgs(u256(1), 0x40, 0x00));
-	ABI_CHECK(callContractFunction("set(uint256)", u256(42)), encodeArgs());
-	ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(42)));
-	ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(0), 0x40, 0x00));
-	ABI_CHECK(callContractFunction("get_delegated()"), hasReturnData ? encodeArgs(u256(1), 0x40, 0x20, 42) : encodeArgs(u256(1), 0x40, 0x00));
+		)DELIMITER";
+		compileAndRun(sourceCode, 0, "C");
+		ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(0)));
+		ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(1)));
+		ABI_CHECK(callContractFunction("get_delegated()"), encodeArgs(u256(1)));
+		ABI_CHECK(callContractFunction("set(uint256)", u256(1)), encodeArgs());
+		ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(1)));
+		ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(0)));
+		ABI_CHECK(callContractFunction("get_delegated()"), encodeArgs(u256(1)));
+		ABI_CHECK(callContractFunction("set(uint256)", u256(42)), encodeArgs());
+		ABI_CHECK(callContractFunction("get()"), encodeArgs(u256(42)));
+		ABI_CHECK(callContractFunction("assert0_delegated()"), encodeArgs(u256(0)));
+		ABI_CHECK(callContractFunction("get_delegated()"), encodeArgs(u256(1)));
+	}
 }
 
 BOOST_AUTO_TEST_CASE(function_types_sig)
@@ -13303,8 +13343,8 @@ BOOST_AUTO_TEST_CASE(abi_encode_call)
 				uint[] memory b = new uint[](2);
 				b[0] = 6;
 				b[1] = 7;
-				(bool success, bytes memory data) = address(this).call(abi.encodeWithSignature("c(uint256,uint256[])", a, b));
-				require(success && data.length == 0);
+				(bool success,) = address(this).call(abi.encodeWithSignature("c(uint256,uint256[])", a, b));
+				require(success);
 				return x;
 			}
 		}
