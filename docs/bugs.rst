@@ -57,13 +57,16 @@ conditions
     means that the optimizer has to be switched on to enable the bug.
     If no conditions are given, assume that the bug is present.
 check
-    This field contains JavaScript regular expressions that are to be matched
-    against the source code ("source-regex") to find out if the
-    smart contract contains the bug or not. If there is no match,
-    then the bug is very likely not present. If there is a match,
-    the bug might be present. For improved accuracy, the regular
-    expression should be applied to the source code after stripping
-    comments.
+    This field contains different checks that report whether the smart
+    contract contains the bug or not. The first type of check are Javascript
+    regular expressions that are to be matched against the source code
+    ("source-regex") if the bug is present.  If there is no match, then the
+    bug is very likely not present. If there is a match, the bug might be
+    present. The second type of check are patterns to be checked on the AST of
+    the Solidity program ("json-path"). If at least one path of the Solidity
+    AST contains the list of nodes given, in the same order, the bug is likely
+    present.  For improved accuracy, the checks should be applied to the
+    source code after stripping comments.
 
 .. literalinclude:: bugs.json
    :language: js

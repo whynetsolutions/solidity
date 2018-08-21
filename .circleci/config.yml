@@ -180,15 +180,20 @@ jobs:
           command: ~/.local/bin/codespell -S "*.enc,.git" -I ./scripts/codespell_whitelist.txt
 
   test_buglist:
-      docker:
-        - image: circleci/node
-      environment:
-        TERM: xterm
-      steps:
-        - checkout
-        - run:
-            name: Test buglist
-            command: ./test/buglistTests.js
+    docker:
+      - image: circleci/node
+    environment:
+      TERM: xterm
+    steps:
+      - checkout
+      - run:
+          name: JS deps
+          command: |
+            npm install download
+            npm install JSONPath
+      - run:
+          name: Test buglist
+          command: ./test/buglistTests.js
 
   test_x86_linux:
     docker:

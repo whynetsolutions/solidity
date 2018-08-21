@@ -5,7 +5,8 @@
 		"description": "If a struct is used in an event, the address of the struct is logged instead of the actual data.",
 		"introduced": "0.4.17",
 		"fixed": "0.5.0",
-		"severity": "very low"
+		"severity": "very low",
+		"check": {"json-path": [{"name": "EventDefinition"}, {"name": "UserDefinedTypeName", "type": "struct"}]}
 	},
 	{
 		"name": "NestedArrayFunctionCallDecoder",
