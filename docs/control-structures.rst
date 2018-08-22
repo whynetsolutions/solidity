@@ -29,8 +29,8 @@ something like::
         }
     }
 
-...note::
-    A function cannot accept a multi-dimensional array as an input parameter. This functionality is possible if you enable the new experimental ``ABIEncoderV2`` feature by adding ``pragma experimental ABIEncoderV2;`` to your source file. This feature introduces other experimental changes that you can read more about in the ABI_ guide.
+.. note::
+    A function cannot accept a multi-dimensional array as an input parameter. This functionality is possible if you enable the new experimental ``ABIEncoderV2`` feature by adding ``pragma experimental ABIEncoderV2;`` to your source file. This feature introduces other experimental changes that you can read more about in the :ref:`ABI` guide.
 
 .. index:: return array, return string, array, string, array of strings, dynamic array, variably sized array, return struct, struct
 
@@ -67,12 +67,12 @@ Input parameters and output parameters can be used as expressions in
 the function body.  There, they are also usable in the left-hand side
 of assignment.
 
-...note::
+.. note::
     You cannot return some types from non-internal functions. If you enable the
     new experimental ``ABIEncoderV2`` feature by adding ``pragma experimental
     ABIEncoderV2;`` to your source file then more types are available, but
-    complex types (e.g., `mapping`) are limited to inside a single contract and
-    you cannot transfer them.
+    complex types (e.g., ``mapping``) are limited to inside a single contract
+    and you cannot transfer them.
 
 .. index:: if, else, while, do/while, for, break, continue, return, switch, goto
 
@@ -167,7 +167,7 @@ When calling functions of other contracts, you can specify the amount of Wei or 
 The modifier ``payable`` has to be used for ``info``, because otherwise, the `.value()`
 option would not be available.
 
-...note::
+.. note::
     The expression ``InfoFeed(addr)`` performs an explicit type conversion stating that "we know that the type of the contract at the given address is ``InfoFeed``" and this does not execute a constructor. Explicit type conversions have to be handled with extreme caution. Never call a function on a contract where you are not sure about its type.
 
 We could also have used ``function setFeed(InfoFeed _feed) { feed = _feed; }`` directly.
@@ -194,7 +194,7 @@ throws an exception or goes out of gas.
     external functions happen after any changes to state variables in your contract
     so your contract is not vulnerable to a reentrancy exploit.
 
-...note::
+.. note::
     A function call from one contract to another does not create its own transaction, it is a message call as part of the overall transaction.
 
 Named Calls and Anonymous Function Parameters
