@@ -67,7 +67,11 @@ the function body.  There, they are also usable in the left-hand side
 of assignment.
 
 ...note::
-    You can return all types from Solidity functions, but for structs, only from ``internal`` function calls. You can return ``memory`` structs from any function if you enable the new experimental ``ABIEncoderV2`` feature by adding ``pragma experimental ABIEncoderV2;`` to your source file. This feature introduces other experimental changes that you can read more about in the ABI_ guide.
+    You cannot return some types from non-internal functions. If you enable the
+    new experimental ``ABIEncoderV2`` feature by adding ``pragma experimental
+    ABIEncoderV2;`` to your source file then more types are available, but
+    complex types (e.g., `mapping`) are limited to inside a single contract and
+    you cannot transfer them.
 
 .. index:: if, else, while, do/while, for, break, continue, return, switch, goto
 
@@ -146,7 +150,7 @@ all function arguments have to be copied to memory.
 When calling functions of other contracts, you can specify the amount of Wei or gas sent with the call with the special options ``.value()`` and ``.gas()``, respectively. Any Wei you send to the contract is added to the total balance of the contract:
 
 ::
-  
+
     pragma solidity ^0.4.0;
 
     contract InfoFeed {
