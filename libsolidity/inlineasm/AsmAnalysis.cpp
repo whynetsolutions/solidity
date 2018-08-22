@@ -57,7 +57,7 @@ bool AsmAnalyzer::operator()(Label const& _label)
 	solAssert(!_label.name.empty(), "");
 	checkLooseFeature(
 		_label.location,
-		"The use of labels is deprecated. Please use \"if\", \"switch\", \"for\" or function calls instead."
+		"The use of labels is disallowed. Please use \"if\", \"switch\", \"for\" or function calls instead."
 	);
 	m_info.stackHeightInfo[&_label] = m_stackHeight;
 	warnOnInstructions(solidity::Instruction::JUMPDEST, _label.location);
@@ -68,7 +68,7 @@ bool AsmAnalyzer::operator()(assembly::Instruction const& _instruction)
 {
 	checkLooseFeature(
 		_instruction.location,
-		"The use of non-functional instructions is deprecated. Please use functional notation instead."
+		"The use of non-functional instructions is disallowed. Please use functional notation instead."
 	);
 	auto const& info = instructionInfo(_instruction.instruction);
 	m_stackHeight += info.ret - info.args;
@@ -85,7 +85,7 @@ bool AsmAnalyzer::operator()(assembly::Literal const& _literal)
 	{
 		m_errorReporter.typeError(
 			_literal.location,
-			"String literal too long (" + boost::lexical_cast<std::string>(_literal.value.size()) + " > 32)"
+			"String literal too long (" + to_string(_literal.value.size()) + " > 32)"
 		);
 		return false;
 	}
@@ -185,7 +185,7 @@ bool AsmAnalyzer::operator()(assembly::ExpressionStatement const& _statement)
 		Error::Type errorType = m_flavour == AsmFlavour::Loose ? *m_errorTypeForLoose : Error::Type::TypeError;
 		string msg =
 			"Top-level expressions are not supposed to return values (this expression returns " +
-			boost::lexical_cast<string>(m_stackHeight - initialStackHeight) +
+			to_string(m_stackHeight - initialStackHeight) +
 			" value" +
 			(m_stackHeight - initialStackHeight == 1 ? "" : "s") +
 			"). Use ``pop()`` or assign them.";
@@ -201,7 +201,7 @@ bool AsmAnalyzer::operator()(assembly::StackAssignment const& _assignment)
 {
 	checkLooseFeature(
 		_assignment.location,
-		"The use of stack assignment is deprecated. Please use assignment in functional notation instead."
+		"The use of stack assignment is disallowed. Please use assignment in functional notation instead."
 	);
 	bool success = checkAssignment(_assignment.variableName, size_t(-1));
 	m_info.stackHeightInfo[&_assignment] = m_stackHeight;
@@ -322,8 +322,8 @@ bool AsmAnalyzer::operator()(assembly::FunctionCall const& _funCall)
 		{
 			m_errorReporter.typeError(
 				_funCall.functionName.location,
-				"Expected " + boost::lexical_cast<string>(arguments) + " arguments but got " +
-				boost::lexical_cast<string>(_funCall.arguments.size()) + "."
+				"Expected " + to_string(arguments) + " arguments but got " +
+				to_string(_funCall.arguments.size()) + "."
 			);
 			success = false;
 		}
@@ -477,7 +477,7 @@ bool AsmAnalyzer::expectDeposit(int _deposit, int _oldHeight, SourceLocation con
 		m_errorReporter.typeError(
 			_location,
 			"Expected expression to return one item to the stack, but did return " +
-			boost::lexical_cast<string>(m_stackHeight - _oldHeight) +
+			to_string(m_stackHeight - _oldHeight) +
 			" items."
 		);
 		return false;

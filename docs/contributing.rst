@@ -62,6 +62,10 @@ Finally, please make sure you respect the `coding style
 for this project. Also, even though we do CI testing, please test your code and
 ensure that it builds locally before submitting a pull request.
 
+Please note that this project is released with a `Contributor Code of Conduct
+<https://raw.githubusercontent.com/ethereum/solidity/develop/CODE_OF_CONDUCT.md>`_.
+By participating in this project you agree to abide by its terms.
+
 Thank you for your help!
 
 Running the compiler tests
@@ -92,6 +96,11 @@ Alternatively, there is a testing script at ``scripts/test.sh`` which executes a
 ``cpp-ethereum`` automatically if it is in the path (but does not download it).
 
 Travis CI even runs some additional tests (including ``solc-js`` and testing third party Solidity frameworks) that require compiling the Emscripten target.
+
+.. note ::
+
+    While any version of ``cpp-ethereum`` should be usable, this cannot be guaranteed, and it is suggested to use the same version that is used by the Solidity continuous integration tests.
+    Currently the CI uses ``d661ac4fec0aeffbedcdc195f67f5ded0c798278`` of ``cpp-ethereum``.
 
 Writing and running syntax tests
 --------------------------------

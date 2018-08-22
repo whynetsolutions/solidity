@@ -39,14 +39,13 @@ library RLP {
          self._unsafe_nextPtr = ptr + itemLength;
      }
      else
-         throw;
+         revert();
  }
 
  function next(Iterator memory self, bool strict) internal view returns (RLPItem memory subItem) {
      subItem = next(self);
      if(strict && !_validate(subItem))
-         throw;
-     return;
+         revert();
  }
 
  function hasNext(Iterator memory self) internal view returns (bool) {
@@ -80,11 +79,11 @@ library RLP {
      if(strict) {
          uint len = self.length;
          if(_payloadOffset(item) > len)
-             throw;
+             revert();
          if(_itemLength(item._unsafe_memPtr) != len)
-             throw;
+             revert();
          if(!_validate(item))
-             throw;
+             revert();
      }
      return item;
  }
@@ -160,7 +159,7 @@ library RLP {
  /// @return An 'Iterator' over the item.
  function iterator(RLPItem memory self) internal view returns (Iterator memory it) {
      if (!isList(self))
-         throw;
+         revert();
      uint ptr = self._unsafe_memPtr + _payloadOffset(self);
      it._unsafe_item = self;
      it._unsafe_nextPtr = ptr;
@@ -171,10 +170,11 @@ library RLP {
  /// @return The bytes.
  function toBytes(RLPItem memory self) internal returns (bytes memory bts) {
      uint len = self._unsafe_length;
-     if (len == 0)
-         return;
-     bts = new bytes(len);
-     _copyToBytes(self._unsafe_memPtr, bts, len);
+     if (len != 0)
+     {
+         bts = new bytes(len);
+         _copyToBytes(self._unsafe_memPtr, bts, len);
+     }
  }
 
  /// @dev Decode an RLPItem into bytes. This will not work if the
@@ -183,7 +183,7 @@ library RLP {
  /// @return The decoded string.
  function toData(RLPItem memory self) internal returns (bytes memory bts) {
      if(!isData(self))
-         throw;
+         revert();
      (uint rStartPos, uint len) = _decode(self);
      bts = new bytes(len);
      _copyToBytes(rStartPos, bts, len);
@@ -195,7 +195,7 @@ library RLP {
  /// @return Array of RLPItems.
  function toList(RLPItem memory self) internal view returns (RLPItem[] memory list) {
      if(!isList(self))
-         throw;
+         revert();
      uint numItems = items(self);
      list = new RLPItem[](numItems);
      Iterator memory it = iterator(self);
@@ -212,7 +212,7 @@ library RLP {
  /// @return The decoded string.
  function toAscii(RLPItem memory self) internal returns (string memory str) {
      if(!isData(self))
-         throw;
+         revert();
      (uint rStartPos, uint len) = _decode(self);
      bytes memory bts = new bytes(len);
      _copyToBytes(rStartPos, bts, len);
@@ -225,10 +225,10 @@ library RLP {
  /// @return The decoded string.
  function toUint(RLPItem memory self) internal view returns (uint data) {
      if(!isData(self))
-         throw;
+         revert();
      (uint rStartPos, uint len) = _decode(self);
      if (len > 32 || len == 0)
-         throw;
+         revert();
      assembly {
          data := div(mload(rStartPos), exp(256, sub(32, len)))
      }
@@ -240,16 +240,16 @@ library RLP {
  /// @return The decoded string.
  function toBool(RLPItem memory self) internal view returns (bool data) {
      if(!isData(self))
-         throw;
+         revert();
      (uint rStartPos, uint len) = _decode(self);
      if (len != 1)
-         throw;
+         revert();
      uint temp;
      assembly {
          temp := byte(0, mload(rStartPos))
      }
      if (temp > 1)
-         throw;
+         revert();
      return temp == 1 ? true : false;
  }
 
@@ -259,10 +259,10 @@ library RLP {
  /// @return The decoded string.
  function toByte(RLPItem memory self) internal view returns (byte data) {
      if(!isData(self))
-         throw;
+         revert();
      (uint rStartPos, uint len) = _decode(self);
      if (len != 1)
-         throw;
+         revert();
      uint8 temp;
      assembly {
          temp := byte(0, mload(rStartPos))
@@ -292,10 +292,10 @@ library RLP {
  /// @return The decoded string.
  function toAddress(RLPItem memory self) internal view returns (address data) {
      if(!isData(self))
-         throw;
+         revert();
      (uint rStartPos, uint len) = _decode(self);
      if (len != 20)
-         throw;
+         revert();
      assembly {
          data := div(mload(rStartPos), exp(256, 12))
      }
@@ -350,7 +350,7 @@ library RLP {
  // Get start position and length of the data.
  function _decode(RLPItem memory self) private view returns (uint memPtr, uint len) {
      if(!isData(self))
-         throw;
+         revert();
      uint b0;
      uint start = self._unsafe_memPtr;
      assembly {
@@ -359,9 +359,8 @@ library RLP {
      if (b0 < DATA_SHORT_START) {
          memPtr = start;
          len = 1;
-         return;
      }
-     if (b0 < DATA_LONG_START) {
+     else if (b0 < DATA_LONG_START) {
          len = self._unsafe_length - 1;
          memPtr = start + 1;
      } else {
@@ -372,7 +371,6 @@ library RLP {
          len = self._unsafe_length - 1 - bLen;
          memPtr = start + bLen + 1;
      }
-     return;
  }
 
  // Assumes that enough memory has been allocated to store in target.
@@ -381,19 +379,16 @@ library RLP {
      // we can write entire words, and just overwrite any excess.
      assembly {
          {
-                 let i := 0 // Start at arr + 0x20
                  let words := div(add(btsLen, 31), 32)
                  let rOffset := btsPtr
                  let wOffset := add(tgt, 0x20)
-             tag_loop:
-                 jumpi(end, eq(i, words))
+
+                 // Start at arr + 0x20
+                 for { let i := 0 } not(eq(i, words)) { i := add(i, 1) }
                  {
                      let offset := mul(i, 0x20)
                      mstore(add(wOffset, offset), mload(add(rOffset, offset)))
-                     i := add(i, 1)
                  }
-                 jump(tag_loop)
-             end:
                  mstore(add(tgt, add(0x20, mload(tgt))), 0)
          }
      }

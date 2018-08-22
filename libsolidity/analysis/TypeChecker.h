@@ -87,13 +87,20 @@ private:
 	/// Checks (and warns) if a tuple assignment might cause unexpected overwrites in storage.
 	/// Should only be called if the left hand side is tuple-typed.
 	void checkDoubleStorageAssignment(Assignment const& _assignment);
+	// Checks whether the expression @arg _expression can be assigned from type @arg _type
+	// and reports an error, if not.
+	void checkExpressionAssignment(Type const& _type, Expression const& _expression);
+
+	/// Performs type checks for ``abi.decode(bytes memory, (...))`` and returns the
+	/// return type (which is basically the second argument) if successful. It returns
+	/// the empty tuple type or error.
+	TypePointer typeCheckABIDecodeAndRetrieveReturnType(FunctionCall const& _functionCall, bool _abiEncoderV2);
 
 	virtual void endVisit(InheritanceSpecifier const& _inheritance) override;
 	virtual void endVisit(UsingForDirective const& _usingFor) override;
 	virtual bool visit(StructDefinition const& _struct) override;
 	virtual bool visit(FunctionDefinition const& _function) override;
 	virtual bool visit(VariableDeclaration const& _variable) override;
-	virtual bool visit(EnumDefinition const& _enum) override;
 	/// We need to do this manually because we want to pass the bases of the current contract in
 	/// case this is a base constructor call.
 	void visitManually(ModifierInvocation const& _modifier, std::vector<ContractDefinition const*> const& _bases);
@@ -146,6 +153,9 @@ private:
 
 	/// Flag indicating whether we are currently inside an EmitStatement.
 	bool m_insideEmitStatement = false;
+
+	/// Flag indicating whether we are currently inside a StructDefinition.
+	bool m_insideStruct = false;
 
 	ErrorReporter& m_errorReporter;
 };

@@ -333,26 +333,19 @@ void CompilerUtils::encodeToMemory(
 )
 {
 	// stack: <v1> <v2> ... <vn> <mem>
+	bool const encoderV2 = m_context.experimentalFeatureActive(ExperimentalFeature::ABIEncoderV2);
 	TypePointers targetTypes = _targetTypes.empty() ? _givenTypes : _targetTypes;
 	solAssert(targetTypes.size() == _givenTypes.size(), "");
 	for (TypePointer& t: targetTypes)
 	{
-		solUnimplementedAssert(
-			t->mobileType() &&
-			t->mobileType()->interfaceType(_encodeAsLibraryTypes) &&
-			t->mobileType()->interfaceType(_encodeAsLibraryTypes)->encodingType(),
-			"Encoding type \"" + t->toString() + "\" not yet implemented."
-		);
-		t = t->mobileType()->interfaceType(_encodeAsLibraryTypes)->encodingType();
+		TypePointer tEncoding = t->fullEncodingType(_encodeAsLibraryTypes, encoderV2, !_padToWordBoundaries);
+		solUnimplementedAssert(tEncoding, "Encoding type \"" + t->toString() + "\" not yet implemented.");
+		t = std::move(tEncoding);
 	}
 
 	if (_givenTypes.empty())
 		return;
-	else if (
-		_padToWordBoundaries &&
-		!_copyDynamicDataInPlace &&
-		m_context.experimentalFeatureActive(ExperimentalFeature::ABIEncoderV2)
-	)
+	else if (_padToWordBoundaries && !_copyDynamicDataInPlace && encoderV2)
 	{
 		// Use the new Yul-based encoding function
 		auto stackHeightBefore = m_context.stackHeight();
@@ -954,20 +947,12 @@ void CompilerUtils::convertType(
 	{
 		TupleType const& sourceTuple = dynamic_cast<TupleType const&>(_typeOnStack);
 		TupleType const& targetTuple = dynamic_cast<TupleType const&>(_targetType);
-		// fillRight: remove excess values at right side, !fillRight: remove eccess values at left side
-		bool fillRight = !targetTuple.components().empty() && (
-			!targetTuple.components().back() ||
-			targetTuple.components().front()
-		);
+		solAssert(targetTuple.components().size() == sourceTuple.components().size(), "");
 		unsigned depth = sourceTuple.sizeOnStack();
 		for (size_t i = 0; i < sourceTuple.components().size(); ++i)
 		{
 			TypePointer sourceType = sourceTuple.components()[i];
-			TypePointer targetType;
-			if (fillRight && i < targetTuple.components().size())
-				targetType = targetTuple.components()[i];
-			else if (!fillRight && targetTuple.components().size() + i >= sourceTuple.components().size())
-				targetType = targetTuple.components()[targetTuple.components().size() - (sourceTuple.components().size() - i)];
+			TypePointer targetType = targetTuple.components()[i];
 			if (!sourceType)
 			{
 				solAssert(!targetType, "");

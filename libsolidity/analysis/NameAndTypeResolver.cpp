@@ -231,7 +231,7 @@ vector<Declaration const*> NameAndTypeResolver::cleanedDeclarations(
 				shared_ptr<FunctionType const> newFunctionType { d->functionType(false) };
 				if (!newFunctionType)
 					newFunctionType = d->functionType(true);
-				return newFunctionType && functionType->hasEqualArgumentTypes(*newFunctionType);
+				return newFunctionType && functionType->hasEqualParameterTypes(*newFunctionType);
 			}
 		))
 			uniqueFunctions.push_back(declaration);
@@ -295,10 +295,7 @@ bool NameAndTypeResolver::resolveNamesAndTypesInternal(ASTNode& _node, bool _res
 		{
 			setScope(contract);
 			if (!resolveNamesAndTypes(*node, false))
-			{
 				success = false;
-				break;
-			}
 		}
 
 		if (!success)
@@ -629,6 +626,17 @@ void DeclarationRegistrationHelper::endVisit(ModifierDefinition&)
 	closeCurrentScope();
 }
 
+bool DeclarationRegistrationHelper::visit(FunctionTypeName& _funTypeName)
+{
+	enterNewSubScope(_funTypeName);
+	return true;
+}
+
+void DeclarationRegistrationHelper::endVisit(FunctionTypeName&)
+{
+	closeCurrentScope();
+}
+
 bool DeclarationRegistrationHelper::visit(Block& _block)
 {
 	_block.setScope(m_currentScope);
@@ -710,10 +718,6 @@ void DeclarationRegistrationHelper::registerDeclaration(Declaration& _declaratio
 		dynamic_cast<EventDefinition const*>(m_currentScope)
 	)
 		warnAboutShadowing = false;
-	// Do not warn about the constructor shadowing the contract.
-	if (auto fun = dynamic_cast<FunctionDefinition const*>(&_declaration))
-		if (fun->isConstructor())
-			warnAboutShadowing = false;
 
 	// Register declaration as inactive if we are in block scope.
 	bool inactive =

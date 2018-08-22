@@ -22,6 +22,10 @@
 #include <libsolidity/analysis/SemVerHandler.h>
 #include <libsolidity/interface/ErrorReporter.h>
 #include <libsolidity/interface/Version.h>
+#include <boost/algorithm/cxx11/all_of.hpp>
+
+#include <boost/algorithm/string.hpp>
+#include <string>
 
 using namespace std;
 using namespace dev;
@@ -174,18 +178,49 @@ bool SyntaxChecker::visit(Break const& _breakStatement)
 
 bool SyntaxChecker::visit(Throw const& _throwStatement)
 {
-	bool const v050 = m_sourceUnit->annotation().experimentalFeatures.count(ExperimentalFeature::V050);
+	m_errorReporter.syntaxError(
+		_throwStatement.location(),
+		"\"throw\" is deprecated in favour of \"revert()\", \"require()\" and \"assert()\"."
+	);
 
-	if (v050)
-		m_errorReporter.syntaxError(
-			_throwStatement.location(),
-			"\"throw\" is deprecated in favour of \"revert()\", \"require()\" and \"assert()\"."
-		);
-	else
-		m_errorReporter.warning(
-			_throwStatement.location(),
-			"\"throw\" is deprecated in favour of \"revert()\", \"require()\" and \"assert()\"."
-		);
+	return true;
+}
+
+bool SyntaxChecker::visit(Literal const& _literal)
+{
+	if (_literal.token() != Token::Number)
+		return true;
+
+	ASTString const& value = _literal.value();
+	solAssert(!value.empty(), "");
+
+	// Generic checks no matter what base this number literal is of:
+	if (value.back() == '_')
+	{
+		m_errorReporter.syntaxError(_literal.location(), "Invalid use of underscores in number literal. No trailing underscores allowed.");
+		return true;
+	}
+
+	if (value.find("__") != ASTString::npos)
+	{
+		m_errorReporter.syntaxError(_literal.location(), "Invalid use of underscores in number literal. Only one consecutive underscores between digits allowed.");
+		return true;
+	}
+
+	if (!_literal.isHexNumber()) // decimal literal
+	{
+		if (value.find("._") != ASTString::npos)
+			m_errorReporter.syntaxError(_literal.location(), "Invalid use of underscores in number literal. No underscores in front of the fraction part allowed.");
+
+		if (value.find("_.") != ASTString::npos)
+			m_errorReporter.syntaxError(_literal.location(), "Invalid use of underscores in number literal. No underscores in front of the fraction part allowed.");
+
+		if (value.find("_e") != ASTString::npos)
+			m_errorReporter.syntaxError(_literal.location(), "Invalid use of underscores in number literal. No underscore at the end of the mantissa allowed.");
+
+		if (value.find("e_") != ASTString::npos)
+			m_errorReporter.syntaxError(_literal.location(), "Invalid use of underscores in number literal. No underscore in front of exponent allowed.");
+	}
 
 	return true;
 }
@@ -204,40 +239,34 @@ bool SyntaxChecker::visit(PlaceholderStatement const&)
 	return true;
 }
 
-bool SyntaxChecker::visit(FunctionDefinition const& _function)
+bool SyntaxChecker::visit(ContractDefinition const& _contract)
 {
-	bool const v050 = m_sourceUnit->annotation().experimentalFeatures.count(ExperimentalFeature::V050);
+	m_isInterface = _contract.contractKind() == ContractDefinition::ContractKind::Interface;
 
-	if (v050 && _function.noVisibilitySpecified())
-		m_errorReporter.syntaxError(_function.location(), "No visibility specified.");
-
-	if (_function.isOldStyleConstructor())
-	{
-		if (v050)
-			m_errorReporter.syntaxError(
-				_function.location(),
+	ASTString const& contractName = _contract.name();
+	for (FunctionDefinition const* function: _contract.definedFunctions())
+		if (function->name() == contractName)
+			m_errorReporter.syntaxError(function->location(),
 				"Functions are not allowed to have the same name as the contract. "
 				"If you intend this to be a constructor, use \"constructor(...) { ... }\" to define it."
 			);
-		else
-			m_errorReporter.warning(
-				_function.location(),
-				"Defining constructors as functions with the same name as the contract is deprecated. "
-				"Use \"constructor(...) { ... }\" instead."
-			);
-	}
-	if (!_function.isImplemented() && !_function.modifiers().empty())
+	return true;
+}
+
+bool SyntaxChecker::visit(FunctionDefinition const& _function)
+{
+	if (_function.noVisibilitySpecified())
 	{
-		if (v050)
-			m_errorReporter.syntaxError(_function.location(), "Functions without implementation cannot have modifiers.");
-		else
-			m_errorReporter.warning(_function.location(), "Modifiers of functions without implementation are ignored." );
-	}
-	if (_function.name() == "constructor")
-		m_errorReporter.warning(_function.location(),
-			"This function is named \"constructor\" but is not the constructor of the contract. "
-			"If you intend this to be a constructor, use \"constructor(...) { ... }\" without the \"function\" keyword to define it."
+		string suggestedVisibility = _function.isFallback() || m_isInterface ? "external" : "public";
+		m_errorReporter.syntaxError(
+			_function.location(),
+			"No visibility specified. Did you intend to add \"" + suggestedVisibility + "\"?"
 		);
+	}
+
+	if (!_function.isImplemented() && !_function.modifiers().empty())
+		m_errorReporter.syntaxError(_function.location(), "Functions without implementation cannot have modifiers.");
+
 	return true;
 }
 
@@ -250,6 +279,18 @@ bool SyntaxChecker::visit(FunctionTypeName const& _node)
 	for (auto const& decl: _node.returnParameterTypeList()->parameters())
 		if (!decl->name().empty())
 			m_errorReporter.syntaxError(decl->location(), "Return parameters in function types may not be named.");
+
+	return true;
+}
+
+bool SyntaxChecker::visit(VariableDeclarationStatement const& _statement)
+{
+	// Report if none of the variable components in the tuple have a name (only possible via deprecated "var")
+	if (boost::algorithm::all_of_equal(_statement.declarations(), nullptr))
+		m_errorReporter.syntaxError(
+			_statement.location(),
+			"The use of the \"var\" keyword is disallowed. The declaration part of the statement can be removed, since it is empty."
+		);
 
 	return true;
 }

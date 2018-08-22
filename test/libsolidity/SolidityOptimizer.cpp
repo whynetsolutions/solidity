@@ -25,7 +25,6 @@
 #include <libevmasm/Instruction.h>
 
 #include <boost/test/unit_test.hpp>
-#include <boost/lexical_cast.hpp>
 
 #include <chrono>
 #include <string>
@@ -74,16 +73,16 @@ public:
 		unsigned const _optimizeRuns = 200
 	)
 	{
-		m_nonOptimizedBytecode = compileAndRunWithOptimizer(_sourceCode, _value, _contractName, false, _optimizeRuns);
+		m_nonOptimizedBytecode = compileAndRunWithOptimizer("pragma solidity >=0.0;\n" + _sourceCode, _value, _contractName, false, _optimizeRuns);
 		m_nonOptimizedContract = m_contractAddress;
-		m_optimizedBytecode = compileAndRunWithOptimizer(_sourceCode, _value, _contractName, true, _optimizeRuns);
+		m_optimizedBytecode = compileAndRunWithOptimizer("pragma solidity >=0.0;\n" + _sourceCode, _value, _contractName, true, _optimizeRuns);
 		size_t nonOptimizedSize = numInstructions(m_nonOptimizedBytecode);
 		size_t optimizedSize = numInstructions(m_optimizedBytecode);
 		BOOST_CHECK_MESSAGE(
 			_optimizeRuns < 50 || optimizedSize < nonOptimizedSize,
 			string("Optimizer did not reduce bytecode size. Non-optimized size: ") +
-			std::to_string(nonOptimizedSize) + " - optimized size: " +
-			std::to_string(optimizedSize)
+			to_string(nonOptimizedSize) + " - optimized size: " +
+			to_string(optimizedSize)
 		);
 		m_optimizedContract = m_contractAddress;
 	}
@@ -370,7 +369,7 @@ BOOST_AUTO_TEST_CASE(sequence_number_for_calls)
 	// to storage), so the sequence number should be incremented.
 	char const* sourceCode = R"(
 		contract test {
-			function f(string a, string b) public returns (bool) { return sha256(bytes(a)) == sha256(bytes(b)); }
+			function f(string memory a, string memory b) public returns (bool) { return sha256(bytes(a)) == sha256(bytes(b)); }
 		}
 	)";
 	compileBothVersions(sourceCode);
@@ -394,12 +393,12 @@ BOOST_AUTO_TEST_CASE(computing_constants)
 				g();
 				return 1;
 			}
-			function g() {
+			function g() public {
 				m_b = 0x817416927846239487123469187231298734162934871263941234127518276;
 				m_c = 0x817416927846239487123469187231298734162934871263941234127518276;
 				h();
 			}
-			function h() {
+			function h() public {
 				m_d = 0xff05694900000000000000000000000000000000000000000000000000000000;
 			}
 			function get() public returns (uint ra, uint rb, uint rc, uint rd) {
@@ -441,8 +440,6 @@ BOOST_AUTO_TEST_CASE(constant_optimization_early_exit)
 	// This tests that the constant optimizer does not try to find the best representation
 	// indefinitely but instead stops after some number of iterations.
 	char const* sourceCode = R"(
-	pragma solidity ^0.4.0;
-
 	contract HexEncoding {
 		function hexEncodeTest(address addr) public returns (bytes32 ret) {
 			uint x = uint(addr) / 2**32;
@@ -518,8 +515,8 @@ BOOST_AUTO_TEST_CASE(inconsistency)
 
 			// Called with params: containerIndex=0, valueIndex=0
 			function levelIII(uint containerIndex, uint valueIndex) private {
-				Container container = containers[containerIndex];
-				Value value = container.values[valueIndex];
+				Container storage container = containers[containerIndex];
+				Value storage value = container.values[valueIndex];
 				debug = container.valueIndices[value.number];
 			}
 			function levelII() private {
@@ -530,7 +527,7 @@ BOOST_AUTO_TEST_CASE(inconsistency)
 
 			function trigger() public returns (uint) {
 				containers.length++;
-				Container container = containers[0];
+				Container storage container = containers[0];
 
 				container.values.push(Value({
 					badnum: 9000,
@@ -600,7 +597,7 @@ BOOST_AUTO_TEST_CASE(init_empty_dynamic_arrays)
 	// not use any memory.
 	char const* sourceCode = R"(
 		contract Test {
-			function f() pure returns (uint r) {
+			function f() public pure returns (uint r) {
 				uint[][] memory x = new uint[][](20000);
 				return x.length;
 			}
@@ -619,7 +616,7 @@ BOOST_AUTO_TEST_CASE(optimise_multi_stores)
 			struct S { uint16 a; uint16 b; uint16[3] c; uint[] dyn; }
 			uint padding;
 			S[] s;
-			function f() public returns (uint16, uint16, uint16[3], uint) {
+			function f() public returns (uint16, uint16, uint16[3] memory, uint) {
 				uint16[3] memory c;
 				c[0] = 7;
 				c[1] = 8;

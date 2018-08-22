@@ -80,7 +80,6 @@ static string const g_strAstJson = "ast-json";
 static string const g_strAstCompactJson = "ast-compact-json";
 static string const g_strBinary = "bin";
 static string const g_strBinaryRuntime = "bin-runtime";
-static string const g_strCloneBinary = "clone-bin";
 static string const g_strCombinedJson = "combined-json";
 static string const g_strCompactJSON = "compact-format";
 static string const g_strContracts = "contracts";
@@ -128,7 +127,6 @@ static string const g_argAstCompactJson = g_strAstCompactJson;
 static string const g_argAstJson = g_strAstJson;
 static string const g_argBinary = g_strBinary;
 static string const g_argBinaryRuntime = g_strBinaryRuntime;
-static string const g_argCloneBinary = g_strCloneBinary;
 static string const g_argCombinedJson = g_strCombinedJson;
 static string const g_argCompactJSON = g_strCompactJSON;
 static string const g_argGas = g_strGas;
@@ -161,7 +159,6 @@ static set<string> const g_combinedJsonArgs
 	g_strAst,
 	g_strBinary,
 	g_strBinaryRuntime,
-	g_strCloneBinary,
 	g_strCompactJSON,
 	g_strInterface,
 	g_strMetadata,
@@ -213,7 +210,6 @@ static bool needsHumanTargetedStdout(po::variables_map const& _args)
 		g_argAstJson,
 		g_argBinary,
 		g_argBinaryRuntime,
-		g_argCloneBinary,
 		g_argMetadata,
 		g_argNatspecUser,
 		g_argNatspecDev,
@@ -235,16 +231,6 @@ void CommandLineInterface::handleBinary(string const& _contract)
 		{
 			cout << "Binary: " << endl;
 			cout << m_compiler->object(_contract).toHex() << endl;
-		}
-	}
-	if (m_args.count(g_argCloneBinary))
-	{
-		if (m_args.count(g_argOutputDir))
-			createFile(m_compiler->filesystemFriendlyName(_contract) + ".clone_bin", m_compiler->cloneObject(_contract).toHex());
-		else
-		{
-			cout << "Clone Binary: " << endl;
-			cout << m_compiler->cloneObject(_contract).toHex() << endl;
 		}
 	}
 	if (m_args.count(g_argBinaryRuntime))
@@ -275,7 +261,7 @@ void CommandLineInterface::handleBytecode(string const& _contract)
 {
 	if (m_args.count(g_argOpcodes))
 		handleOpcode(_contract);
-	if (m_args.count(g_argBinary) || m_args.count(g_argCloneBinary) || m_args.count(g_argBinaryRuntime))
+	if (m_args.count(g_argBinary) || m_args.count(g_argBinaryRuntime))
 		handleBinary(_contract);
 }
 
@@ -406,7 +392,18 @@ bool CommandLineInterface::readInputFilesAndConfigureRemappings()
 		{
 			auto eq = find(path.begin(), path.end(), '=');
 			if (eq != path.end())
-				path = string(eq + 1, path.end());
+			{
+				if (auto r = CompilerStack::parseRemapping(path))
+				{
+					m_remappings.emplace_back(std::move(*r));
+					path = string(eq + 1, path.end());
+				}
+				else
+				{
+					cerr << "Invalid remapping: \"" << path << "\"." << endl;
+					return false;
+				}
+			}
 			else if (path == "-")
 				addStdin = true;
 			else
@@ -416,11 +413,11 @@ bool CommandLineInterface::readInputFilesAndConfigureRemappings()
 				{
 					if (!ignoreMissing)
 					{
-						cerr << "\"" << infile << "\" is not found" << endl;
+						cerr << infile << " is not found." << endl;
 						return false;
 					}
 					else
-						cerr << "\"" << infile << "\" is not found. Skipping." << endl;
+						cerr << infile << " is not found. Skipping." << endl;
 
 					continue;
 				}
@@ -429,16 +426,16 @@ bool CommandLineInterface::readInputFilesAndConfigureRemappings()
 				{
 					if (!ignoreMissing)
 					{
-						cerr << "\"" << infile << "\" is not a valid file" << endl;
+						cerr << infile << " is not a valid file." << endl;
 						return false;
 					}
 					else
-						cerr << "\"" << infile << "\" is not a valid file. Skipping." << endl;
+						cerr << infile << " is not a valid file. Skipping." << endl;
 
 					continue;
 				}
 
-				m_sourceCodes[infile.string()] = dev::readFileAsString(infile.string());
+				m_sourceCodes[infile.generic_string()] = dev::readFileAsString(infile.string());
 				path = boost::filesystem::canonical(infile).string();
 			}
 			m_allowedDirectories.push_back(boost::filesystem::path(path).remove_filename());
@@ -631,7 +628,6 @@ Allowed options)",
 		(g_argOpcodes.c_str(), "Opcodes of the contracts.")
 		(g_argBinary.c_str(), "Binary of the contracts in hex.")
 		(g_argBinaryRuntime.c_str(), "Binary of the runtime part of the contracts in hex.")
-		(g_argCloneBinary.c_str(), "Binary of the clone contracts in hex.")
 		(g_argAbi.c_str(), "ABI specification of the contracts.")
 		(g_argSignatureHashes.c_str(), "Function signature hashes of the contracts.")
 		(g_argNatspecUser.c_str(), "Natspec user documentation of all contracts.")
@@ -724,7 +720,7 @@ bool CommandLineInterface::processInput()
 				return ReadCallback::Result{false, "Not a valid file."};
 
 			auto contents = dev::readFileAsString(canonicalPath.string());
-			m_sourceCodes[path.string()] = contents;
+			m_sourceCodes[path.generic_string()] = contents;
 			return ReadCallback::Result{true, contents};
 		}
 		catch (Exception const& _exception)
@@ -823,7 +819,7 @@ bool CommandLineInterface::processInput()
 		if (m_args.count(g_argMetadataLiteral) > 0)
 			m_compiler->useMetadataLiteralSources(true);
 		if (m_args.count(g_argInputFile))
-			m_compiler->setRemappings(m_args[g_argInputFile].as<vector<string>>());
+			m_compiler->setRemappings(m_remappings);
 		for (auto const& sourceCode: m_sourceCodes)
 			m_compiler->addSource(sourceCode.first, sourceCode.second);
 		if (m_args.count(g_argLibraries))
@@ -910,8 +906,6 @@ void CommandLineInterface::handleCombinedJSON()
 			contractData[g_strBinary] = m_compiler->object(contractName).toHex();
 		if (requests.count(g_strBinaryRuntime))
 			contractData[g_strBinaryRuntime] = m_compiler->runtimeObject(contractName).toHex();
-		if (requests.count(g_strCloneBinary))
-			contractData[g_strCloneBinary] = m_compiler->cloneObject(contractName).toHex();
 		if (requests.count(g_strOpcodes))
 			contractData[g_strOpcodes] = solidity::disassemble(m_compiler->object(contractName).bytecode);
 		if (requests.count(g_strAsm))
@@ -986,10 +980,15 @@ void CommandLineInterface::handleAst(string const& _argStr)
 		map<ASTNode const*, eth::GasMeter::GasConsumption> gasCosts;
 		// FIXME: shouldn't this be done for every contract?
 		if (m_compiler->runtimeAssemblyItems(m_compiler->lastContractName()))
-			gasCosts = GasEstimator::breakToStatementLevel(
+		{
+			//NOTE: keep the local variable `ret` to prevent a Heisenbug that could happen on certain mac os platform.
+			//See: https://github.com/ethereum/solidity/issues/3718 for details.
+			auto ret = GasEstimator::breakToStatementLevel(
 				GasEstimator(m_evmVersion).structuralEstimation(*m_compiler->runtimeAssemblyItems(m_compiler->lastContractName()), asts),
 				asts
 			);
+			gasCosts = ret;
+		}
 
 		bool legacyFormat = !m_args.count(g_argAstCompactJson);
 		if (m_args.count(g_argOutputDir))

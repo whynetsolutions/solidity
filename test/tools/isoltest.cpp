@@ -18,6 +18,7 @@
 #include <libdevcore/CommonIO.h>
 #include <test/libsolidity/AnalysisFramework.h>
 #include <test/libsolidity/SyntaxTest.h>
+#include <test/libsolidity/ASTJSONTest.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/replace.hpp>
@@ -28,6 +29,10 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 using namespace dev;
 using namespace dev::solidity;
@@ -40,8 +45,8 @@ namespace fs = boost::filesystem;
 struct TestStats
 {
 	int successCount;
-	int runCount;
-	operator bool() const { return successCount == runCount; }
+	int testCount;
+	operator bool() const { return successCount == testCount; }
 };
 
 class TestTool
@@ -83,13 +88,15 @@ private:
 	Request handleResponse(bool const _exception);
 
 	TestCase::TestCaseCreator m_testCaseCreator;
-	bool const m_formatted;
+	bool const m_formatted = false;
 	string const m_name;
 	fs::path const m_path;
 	unique_ptr<TestCase> m_test;
+	static bool m_exitRequested;
 };
 
 string TestTool::editor;
+bool TestTool::m_exitRequested = false;
 
 TestTool::Result TestTool::process()
 {
@@ -115,7 +122,7 @@ TestTool::Result TestTool::process()
 			"Exception during syntax test: " << _e.what() << endl;
 		return Result::Exception;
 	}
-	catch(...)
+	catch (...)
 	{
 		FormattedScope(cout, m_formatted, {BOLD, RED}) <<
 			"Unknown exception during syntax test." << endl;
@@ -190,7 +197,7 @@ TestStats TestTool::processPath(
 	std::queue<fs::path> paths;
 	paths.push(_path);
 	int successCount = 0;
-	int runCount = 0;
+	int testCount = 0;
 
 	while (!paths.empty())
 	{
@@ -207,10 +214,15 @@ TestStats TestTool::processPath(
 				if (fs::is_directory(entry.path()) || TestCase::isTestFilename(entry.path().filename()))
 					paths.push(currentPath / entry.path().filename());
 		}
+		else if (m_exitRequested)
+		{
+			++testCount;
+			paths.pop();
+		}
 		else
 		{
+			++testCount;
 			TestTool testTool(_testCaseCreator, currentPath.string(), fullpath, _formatted);
-			++runCount;
 			auto result = testTool.process();
 
 			switch(result)
@@ -220,10 +232,12 @@ TestStats TestTool::processPath(
 				switch(testTool.handleResponse(result == Result::Exception))
 				{
 				case Request::Quit:
-					return { successCount, runCount };
+					paths.pop();
+					m_exitRequested = true;
+					break;
 				case Request::Rerun:
 					cout << "Re-running test case..." << endl;
-					--runCount;
+					--testCount;
 					break;
 				case Request::Skip:
 					paths.pop();
@@ -238,12 +252,34 @@ TestStats TestTool::processPath(
 		}
 	}
 
-	return { successCount, runCount };
+	return { successCount, testCount };
 
+}
+
+void setupTerminal()
+{
+#if defined(_WIN32) && defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+	// Set output mode to handle virtual terminal (ANSI escape sequences)
+	// ignore any error, as this is just a "nice-to-have"
+	// only windows needs to be taken care of, as other platforms (Linux/OSX) support them natively.
+	HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	if (hOut == INVALID_HANDLE_VALUE)
+		return;
+
+	DWORD dwMode = 0;
+	if (!GetConsoleMode(hOut, &dwMode))
+		return;
+
+	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+	if (!SetConsoleMode(hOut, dwMode))
+		return;
+#endif
 }
 
 int main(int argc, char *argv[])
 {
+	setupTerminal();
+
 	if (getenv("EDITOR"))
 		TestTool::editor = getenv("EDITOR");
 	else if (fs::exists("/usr/bin/editor"))
@@ -310,22 +346,53 @@ Allowed options)",
 		}
 	}
 
+	TestStats global_stats { 0, 0 };
+
 	fs::path syntaxTestPath = testPath / "libsolidity" / "syntaxTests";
 
 	if (fs::exists(syntaxTestPath) && fs::is_directory(syntaxTestPath))
 	{
 		auto stats = TestTool::processPath(SyntaxTest::create, testPath / "libsolidity", "syntaxTests", formatted);
 
-		cout << endl << "Summary: ";
+		cout << endl << "Syntax Test Summary: ";
 		FormattedScope(cout, formatted, {BOLD, stats ? GREEN : RED}) <<
-			stats.successCount << "/" << stats.runCount;
-		cout << " tests successful." << endl;
+			stats.successCount << "/" << stats.testCount;
+		cout << " tests successful." << endl << endl;
 
-		return stats ? 0 : 1;
+		global_stats.testCount += stats.testCount;
+		global_stats.successCount += stats.successCount;
 	}
 	else
 	{
 		cerr << "Syntax tests not found. Use the --testpath argument." << endl;
 		return 1;
 	}
+
+	fs::path astJsonTestPath = testPath / "libsolidity" / "ASTJSON";
+
+	if (fs::exists(astJsonTestPath) && fs::is_directory(astJsonTestPath))
+	{
+		auto stats = TestTool::processPath(ASTJSONTest::create, testPath / "libsolidity", "ASTJSON", formatted);
+
+		cout << endl << "JSON AST Test Summary: ";
+		FormattedScope(cout, formatted, {BOLD, stats ? GREEN : RED}) <<
+			stats.successCount << "/" << stats.testCount;
+		cout << " tests successful." << endl << endl;
+
+		global_stats.testCount += stats.testCount;
+		global_stats.successCount += stats.successCount;
+	}
+	else
+	{
+		cerr << "JSON AST tests not found." << endl;
+		return 1;
+	}
+
+	cout << endl << "Summary: ";
+	FormattedScope(cout, formatted, {BOLD, global_stats ? GREEN : RED}) <<
+		 global_stats.successCount << "/" << global_stats.testCount;
+	cout << " tests successful." << endl;
+
+
+	return global_stats ? 0 : 1;
 }

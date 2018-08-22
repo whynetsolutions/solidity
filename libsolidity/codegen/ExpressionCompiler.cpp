@@ -349,6 +349,10 @@ bool ExpressionCompiler::visit(UnaryOperation const& _unaryOperation)
 	case Token::Inc: // ++ (pre- or postfix)
 	case Token::Dec: // -- (pre- or postfix)
 		solAssert(!!m_currentLValue, "LValue not retrieved.");
+		solUnimplementedAssert(
+			_unaryOperation.annotation().type->category() != Type::Category::FixedPoint,
+			"Not yet implemented - FixedPointType."
+		);
 		m_currentLValue->retrieveValue(_unaryOperation.location());
 		if (!_unaryOperation.isPrefixOperation())
 		{
@@ -567,6 +571,7 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 		case FunctionType::Kind::BareCall:
 		case FunctionType::Kind::BareCallCode:
 		case FunctionType::Kind::BareDelegateCall:
+		case FunctionType::Kind::BareStaticCall:
 			_functionCall.expression().accept(*this);
 			appendExternalFunctionCall(function, arguments);
 			break;
@@ -697,7 +702,7 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 				m_context.appendRevert();
 			break;
 		}
-		case FunctionType::Kind::SHA3:
+		case FunctionType::Kind::KECCAK256:
 		{
 			solAssert(arguments.size() == 1, "");
 			solAssert(!function.padArguments(), "");
@@ -1066,6 +1071,27 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 			// stack now: <memory pointer>
 			break;
 		}
+		case FunctionType::Kind::ABIDecode:
+		{
+			arguments.front()->accept(*this);
+			TypePointer firstArgType = arguments.front()->annotation().type;
+			TypePointers const& targetTypes = dynamic_cast<TupleType const&>(*_functionCall.annotation().type).components();
+			if (
+				*firstArgType == ArrayType(DataLocation::CallData) ||
+				*firstArgType == ArrayType(DataLocation::CallData, true)
+			)
+				utils().abiDecode(targetTypes, false);
+			else
+			{
+				utils().convertType(*firstArgType, ArrayType(DataLocation::Memory));
+				m_context << Instruction::DUP1 << u256(32) << Instruction::ADD;
+				m_context << Instruction::SWAP1 << Instruction::MLOAD;
+				// stack now: <mem_pos> <length>
+
+				utils().abiDecode(targetTypes, true);
+			}
+			break;
+		}
 		case FunctionType::Kind::GasLeft:
 			m_context << Instruction::GAS;
 			break;
@@ -1139,18 +1165,19 @@ bool ExpressionCompiler::visit(MemberAccess const& _memberAccess)
 						solAssert(false, "event not found");
 					// no-op, because the parent node will do the job
 					break;
+				case FunctionType::Kind::DelegateCall:
+					_memberAccess.expression().accept(*this);
+					m_context << funType->externalIdentifier();
+					break;
+				case FunctionType::Kind::CallCode:
 				case FunctionType::Kind::External:
 				case FunctionType::Kind::Creation:
-				case FunctionType::Kind::DelegateCall:
-				case FunctionType::Kind::CallCode:
 				case FunctionType::Kind::Send:
 				case FunctionType::Kind::BareCall:
 				case FunctionType::Kind::BareCallCode:
 				case FunctionType::Kind::BareDelegateCall:
+				case FunctionType::Kind::BareStaticCall:
 				case FunctionType::Kind::Transfer:
-					_memberAccess.expression().accept(*this);
-					m_context << funType->externalIdentifier();
-					break;
 				case FunctionType::Kind::Log0:
 				case FunctionType::Kind::Log1:
 				case FunctionType::Kind::Log2:
@@ -1210,63 +1237,52 @@ bool ExpressionCompiler::visit(MemberAccess const& _memberAccess)
 	switch (_memberAccess.expression().annotation().type->category())
 	{
 	case Type::Category::Contract:
-	case Type::Category::Integer:
 	{
-		bool alsoSearchInteger = false;
-		if (_memberAccess.expression().annotation().type->category() == Type::Category::Contract)
+		ContractType const& type = dynamic_cast<ContractType const&>(*_memberAccess.expression().annotation().type);
+		if (type.isSuper())
 		{
-			ContractType const& type = dynamic_cast<ContractType const&>(*_memberAccess.expression().annotation().type);
-			if (type.isSuper())
-			{
-				solAssert(!!_memberAccess.annotation().referencedDeclaration, "Referenced declaration not resolved.");
-				utils().pushCombinedFunctionEntryLabel(m_context.superFunction(
-					dynamic_cast<FunctionDefinition const&>(*_memberAccess.annotation().referencedDeclaration),
-					type.contractDefinition()
-				));
-			}
+			solAssert(!!_memberAccess.annotation().referencedDeclaration, "Referenced declaration not resolved.");
+			utils().pushCombinedFunctionEntryLabel(m_context.superFunction(
+				dynamic_cast<FunctionDefinition const&>(*_memberAccess.annotation().referencedDeclaration),
+				type.contractDefinition()
+			));
+		}
+		// ordinary contract type
+		else if (Declaration const* declaration = _memberAccess.annotation().referencedDeclaration)
+		{
+			u256 identifier;
+			if (auto const* variable = dynamic_cast<VariableDeclaration const*>(declaration))
+				identifier = FunctionType(*variable).externalIdentifier();
+			else if (auto const* function = dynamic_cast<FunctionDefinition const*>(declaration))
+				identifier = FunctionType(*function).externalIdentifier();
 			else
-			{
-				// ordinary contract type
-				if (Declaration const* declaration = _memberAccess.annotation().referencedDeclaration)
-				{
-					u256 identifier;
-					if (auto const* variable = dynamic_cast<VariableDeclaration const*>(declaration))
-						identifier = FunctionType(*variable).externalIdentifier();
-					else if (auto const* function = dynamic_cast<FunctionDefinition const*>(declaration))
-						identifier = FunctionType(*function).externalIdentifier();
-					else
-						solAssert(false, "Contract member is neither variable nor function.");
-					utils().convertType(type, IntegerType(160, IntegerType::Modifier::Address), true);
-					m_context << identifier;
-				}
-				else
-					// not found in contract, search in members inherited from address
-					alsoSearchInteger = true;
-			}
+				solAssert(false, "Contract member is neither variable nor function.");
+			utils().convertType(type, IntegerType(160, IntegerType::Modifier::Address), true);
+			m_context << identifier;
 		}
 		else
-			alsoSearchInteger = true;
-
-		if (alsoSearchInteger)
+			solAssert(false, "Invalid member access in contract");
+		break;
+	}
+	case Type::Category::Integer:
+	{
+		if (member == "balance")
 		{
-			if (member == "balance")
-			{
-				utils().convertType(
-					*_memberAccess.expression().annotation().type,
-					IntegerType(160, IntegerType::Modifier::Address),
-					true
-				);
-				m_context << Instruction::BALANCE;
-			}
-			else if ((set<string>{"send", "transfer", "call", "callcode", "delegatecall"}).count(member))
-				utils().convertType(
-					*_memberAccess.expression().annotation().type,
-					IntegerType(160, IntegerType::Modifier::Address),
-					true
-				);
-			else
-				solAssert(false, "Invalid member access to integer");
+			utils().convertType(
+				*_memberAccess.expression().annotation().type,
+				IntegerType(160, IntegerType::Modifier::Address),
+				true
+			);
+			m_context << Instruction::BALANCE;
 		}
+		else if ((set<string>{"send", "transfer", "call", "callcode", "delegatecall", "staticcall"}).count(member))
+			utils().convertType(
+				*_memberAccess.expression().annotation().type,
+				IntegerType(160, IntegerType::Modifier::Address),
+				true
+			);
+		else
+			solAssert(false, "Invalid member access to integer");
 		break;
 	}
 	case Type::Category::Function:
@@ -1647,11 +1663,11 @@ void ExpressionCompiler::appendOrdinaryBinaryOperatorCode(Token::Value _operator
 
 void ExpressionCompiler::appendArithmeticOperatorCode(Token::Value _operator, Type const& _type)
 {
-	IntegerType const& type = dynamic_cast<IntegerType const&>(_type);
-	bool const c_isSigned = type.isSigned();
-
 	if (_type.category() == Type::Category::FixedPoint)
 		solUnimplemented("Not yet implemented - FixedPointType.");
+
+	IntegerType const& type = dynamic_cast<IntegerType const&>(_type);
+	bool const c_isSigned = type.isSigned();
 
 	switch (_operator)
 	{
@@ -1811,10 +1827,13 @@ void ExpressionCompiler::appendExternalFunctionCall(
 		utils().moveToStackTop(gasValueSize, _functionType.selfType()->sizeOnStack());
 
 	auto funKind = _functionType.kind();
-	bool returnSuccessCondition = funKind == FunctionType::Kind::BareCall || funKind == FunctionType::Kind::BareCallCode || funKind == FunctionType::Kind::BareDelegateCall;
+
+	solAssert(funKind != FunctionType::Kind::BareStaticCall || m_context.evmVersion().hasStaticCall(), "");
+	
+	bool returnSuccessCondition = funKind == FunctionType::Kind::BareCall || funKind == FunctionType::Kind::BareCallCode || funKind == FunctionType::Kind::BareDelegateCall || funKind == FunctionType::Kind::BareStaticCall;
 	bool isCallCode = funKind == FunctionType::Kind::BareCallCode || funKind == FunctionType::Kind::CallCode;
 	bool isDelegateCall = funKind == FunctionType::Kind::BareDelegateCall || funKind == FunctionType::Kind::DelegateCall;
-	bool useStaticCall = _functionType.stateMutability() <= StateMutability::View && m_context.evmVersion().hasStaticCall();
+	bool useStaticCall = funKind == FunctionType::Kind::BareStaticCall || (_functionType.stateMutability() <= StateMutability::View && m_context.evmVersion().hasStaticCall());
 
 	bool haveReturndatacopy = m_context.evmVersion().supportsReturndata();
 	unsigned retSize = 0;

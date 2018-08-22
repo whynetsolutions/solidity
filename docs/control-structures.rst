@@ -23,8 +23,9 @@ something like::
     pragma solidity ^0.4.16;
 
     contract Simple {
-        function taker(uint _a, uint _b) public pure {
-            // do something with _a and _b.
+        uint sum;
+        function taker(uint _a, uint _b) public {
+            sum = _a + _b;
         }
     }
 
@@ -120,7 +121,7 @@ this nonsensical example::
     pragma solidity ^0.4.16;
 
     contract C {
-        function g(uint a) public pure returns (uint ret) { return f(); }
+        function g(uint a) public pure returns (uint ret) { return a + f(); }
         function f() internal pure returns (uint ret) { return g(7) + f(); }
     }
 
@@ -180,8 +181,8 @@ throws an exception or goes out of gas.
 
 .. warning::
     Any interaction with another contract imposes a potential danger, especially
-    if the source code of the contract is not known in advance. The current
-    contract hands over control to the called contract and that may potentially
+    if the source code of the contract is not known in advance. The
+    current contract hands over control to the called contract and that may potentially
     do just about anything. Even if the called contract inherits from a known parent contract,
     the inheriting contract is only required to have a correct interface. The
     implementation of the contract, however, can be completely arbitrary and thus,
@@ -209,14 +210,16 @@ parameters from the function declaration, but can be in arbitrary order.
     pragma solidity ^0.4.0;
 
     contract C {
-        function f(uint key, uint value) public {
-            // ...
+        mapping(uint => uint) data;
+
+        function f() public {
+            set({value: 2, key: 3});
         }
 
-        function g() public {
-            // named arguments
-            f({value: 2, key: 3});
+        function set(uint key, uint value) public {
+            data[key] = value;
         }
+
     }
 
 Omitted Function Parameter Names
@@ -253,7 +256,7 @@ creation-dependencies are not possible.
     pragma solidity >0.4.24;
 
     contract D {
-        uint x;
+        uint public x;
         constructor(uint a) public payable {
             x = a;
         }
@@ -264,11 +267,13 @@ creation-dependencies are not possible.
 
         function createD(uint arg) public {
             D newD = new D(arg);
+            newD.x();
         }
 
         function createAndEndowD(uint arg, uint amount) public payable {
             // Send ether along with the creation
             D newD = (new D).value(amount)(arg);
+            newD.x();
         }
     }
 
@@ -312,19 +317,20 @@ These can then either be assigned to newly declared variables or to pre-existing
         }
 
         function g() public {
-            // Variables declared with type and assigned from the returned tuple.
-            (uint x, bool b, uint y) = f();
+            // Variables declared with type and assigned from the returned tuple,
+            // not all elements have to be specified (but the number must match).
+            (uint x, , uint y) = f();
             // Common trick to swap values -- does not work for non-value storage types.
             (x, y) = (y, x);
             // Components can be left out (also for variable declarations).
-            (data.length,,) = f(); // Sets the length to 7
+            (data.length, , ) = f(); // Sets the length to 7
         }
     }
 
 .. note::
-    Prior to version 0.4.24 it was possible to assign to tuples of smaller size, either
+    Prior to version 0.5.0 it was possible to assign to tuples of smaller size, either
     filling up on the left or on the right side (which ever was empty). This is
-    now deprecated, both sides have to have the same number of components.
+    now disallowed, so both sides have to have the same number of components.
 
 Complications for Arrays and Structs
 ------------------------------------
@@ -363,11 +369,13 @@ the two variables have the same name but disjoint scopes.
     contract C {
         function minimalScoping() pure public {
             {
-                uint same2 = 0;
+                uint same;
+                same = 1;
             }
 
             {
-                uint same2 = 0;
+                uint same;
+                same = 3;
             }
         }
     }
@@ -379,6 +387,7 @@ In any case, you will get a warning about the outer variable being shadowed.
 ::
 
     pragma solidity >0.4.24;
+    // This will report a warning
     contract C {
         function f() pure public returns (uint) {
             uint x = 1;
@@ -397,9 +406,8 @@ In any case, you will get a warning about the outer variable being shadowed.
 
  ::
 
-    // This will not compile
-
     pragma solidity >0.4.24;
+    // This will not compile
     contract C {
         function f() pure public returns (uint) {
             x = 2;
@@ -429,11 +437,11 @@ The deprecated keyword ``throw`` can also be used as an alternative to ``revert(
     From version 0.4.13 the ``throw`` keyword is deprecated and will be phased out in the future.
 
 When exceptions happen in a sub-call, they "bubble up" (i.e. exceptions are rethrown) automatically. Exceptions to this rule are ``send``
-and the low-level functions ``call``, ``delegatecall`` and ``callcode`` -- those return ``false`` in case
+and the low-level functions ``call``, ``delegatecall``, ``callcode`` and ``staticcall`` -- those return ``false`` in case
 of an exception instead of "bubbling up".
 
 .. warning::
-    The low-level ``call``, ``delegatecall`` and ``callcode`` will return success if the called account is non-existent, as part of the design of EVM. Existence must be checked prior to calling if desired.
+    The low-level ``call``, ``delegatecall``, ``callcode`` and ``staticcall`` will return success if the called account is non-existent, as part of the design of EVM. Existence must be checked prior to calling if desired.
 
 Catching exceptions is not yet possible.
 
@@ -443,18 +451,18 @@ a message string for ``require``, but not for ``assert``.
 
 ::
 
-    pragma solidity ^0.4.22;
+    pragma solidity >0.4.24;
 
     contract Sharer {
         function sendHalf(address addr) public payable returns (uint balance) {
             require(msg.value % 2 == 0, "Even value required.");
-            uint balanceBeforeTransfer = this.balance;
+            uint balanceBeforeTransfer = address(this).balance;
             addr.transfer(msg.value / 2);
             // Since transfer throws an exception on failure and
             // cannot call back here, there should be no way for us to
             // still have half of the money.
-            assert(this.balance == balanceBeforeTransfer - msg.value / 2);
-            return this.balance;
+            assert(address(this).balance == balanceBeforeTransfer - msg.value / 2);
+            return address(this).balance;
         }
     }
 
@@ -472,7 +480,7 @@ A ``require``-style exception is generated in the following situations:
 
 #. Calling ``throw``.
 #. Calling ``require`` with an argument that evaluates to ``false``.
-#. If you call a function via a message call but it does not finish properly (i.e. it runs out of gas, has no matching function, or throws an exception itself), except when a low level operation ``call``, ``send``, ``delegatecall`` or ``callcode`` is used.  The low level operations never throw exceptions but indicate failures by returning ``false``.
+#. If you call a function via a message call but it does not finish properly (i.e. it runs out of gas, has no matching function, or throws an exception itself), except when a low level operation ``call``, ``send``, ``delegatecall``, ``callcode`` or ``staticcall`` is used.  The low level operations never throw exceptions but indicate failures by returning ``false``.
 #. If you create a contract using the ``new`` keyword but the contract creation does not finish properly (see above for the definition of "not finish properly").
 #. If you perform an external function call targeting a contract that contains no code.
 #. If your contract receives Ether via a public function without ``payable`` modifier (including the constructor and the fallback function).
@@ -490,10 +498,10 @@ The following example shows how an error string can be used together with revert
 
 ::
 
-    pragma solidity ^0.4.22;
+    pragma solidity >0.4.24;
 
     contract VendingMachine {
-        function buy(uint amount) payable {
+        function buy(uint amount) public payable {
             if (amount > msg.value / 2 ether)
                 revert("Not enough Ether provided.");
             // Alternative way to do it:

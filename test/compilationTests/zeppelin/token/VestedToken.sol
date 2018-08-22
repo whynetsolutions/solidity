@@ -46,10 +46,10 @@ contract VestedToken is StandardToken, LimitedTransferToken {
 
     // Check for date inconsistencies that may cause unexpected behavior
     if (_cliff < _start || _vesting < _cliff) {
-      throw;
+      revert();
     }
 
-    if (tokenGrantsCount(_to) > MAX_GRANTS_PER_ADDRESS) throw;   // To prevent a user being spammed and have his balance locked (out of gas attack when calculating vesting).
+    if (tokenGrantsCount(_to) > MAX_GRANTS_PER_ADDRESS) revert();   // To prevent a user being spammed and have his balance locked (out of gas attack when calculating vesting).
 
     uint256 count = grants[_to].push(
                 TokenGrant(
@@ -74,14 +74,14 @@ contract VestedToken is StandardToken, LimitedTransferToken {
    * @param _grantId The id of the token grant.
    */
   function revokeTokenGrant(address _holder, uint256 _grantId) public {
-    TokenGrant grant = grants[_holder][_grantId];
+    TokenGrant storage grant = grants[_holder][_grantId];
 
     if (!grant.revokable) { // Check if grant was revokable
-      throw;
+      revert();
     }
 
     if (grant.granter != msg.sender) { // Only granter can revoke it
-      throw;
+      revert();
     }
 
     address receiver = grant.burnsOnRevoke ? 0xdead : msg.sender;
@@ -193,7 +193,7 @@ contract VestedToken is StandardToken, LimitedTransferToken {
    * revokability, burnsOnRevoke, and vesting) plus the vested value at the current time.
    */
   function tokenGrant(address _holder, uint256 _grantId) public view returns (address granter, uint256 value, uint256 vested, uint64 start, uint64 cliff, uint64 vesting, bool revokable, bool burnsOnRevoke) {
-    TokenGrant grant = grants[_holder][_grantId];
+    TokenGrant storage grant = grants[_holder][_grantId];
 
     granter = grant.granter;
     value = grant.value;
@@ -212,7 +212,7 @@ contract VestedToken is StandardToken, LimitedTransferToken {
    * @param time The time to be checked
    * @return An uint256 representing the amount of vested tokens of a specific grant at a specific time.
    */
-  function vestedTokens(TokenGrant grant, uint64 time) private view returns (uint256) {
+  function vestedTokens(TokenGrant memory grant, uint64 time) private view returns (uint256) {
     return calculateVestedTokens(
       grant.value,
       uint256(time),
@@ -226,10 +226,10 @@ contract VestedToken is StandardToken, LimitedTransferToken {
    * @dev Calculate the amount of non vested tokens at a specific time.
    * @param grant TokenGrant The grant to be checked.
    * @param time uint64 The time to be checked
-   * @return An uint256 representing the amount of non vested tokens of a specific grant on the 
+   * @return An uint256 representing the amount of non vested tokens of a specific grant on the
    * passed time frame.
    */
-  function nonVestedTokens(TokenGrant grant, uint64 time) private view returns (uint256) {
+  function nonVestedTokens(TokenGrant memory grant, uint64 time) private view returns (uint256) {
     return grant.value.sub(vestedTokens(grant, time));
   }
 

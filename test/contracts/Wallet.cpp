@@ -101,7 +101,7 @@ contract multiowned {
 
 	// constructor is given number of sigs required to do protected "onlymanyowners" transactions
 	// as well as the selection of addresses capable of confirming them.
-	constructor(address[] _owners, uint _required) {
+	constructor(address[] memory _owners, uint _required) public {
 		m_numOwners = _owners.length + 1;
 		m_owners[1] = uint(msg.sender);
 		m_ownerIndex[uint(msg.sender)] = 1;
@@ -119,7 +119,7 @@ contract multiowned {
 		// make sure they're an owner
 		if (ownerIndex == 0) return;
 		uint ownerIndexBit = 2**ownerIndex;
-		PendingState pending = m_pending[_operation];
+		PendingState storage pending = m_pending[_operation];
 		if (pending.ownersDone & ownerIndexBit > 0) {
 			pending.yetNeeded++;
 			pending.ownersDone -= ownerIndexBit;
@@ -173,12 +173,12 @@ contract multiowned {
 		emit RequirementChanged(_newRequired);
 	}
 
-	function isOwner(address _addr) returns (bool) {
+	function isOwner(address _addr) public returns (bool) {
 		return m_ownerIndex[uint(_addr)] > 0;
 	}
 
-	function hasConfirmed(bytes32 _operation, address _owner) view returns (bool) {
-		PendingState pending = m_pending[_operation];
+	function hasConfirmed(bytes32 _operation, address _owner) public view returns (bool) {
+		PendingState storage pending = m_pending[_operation];
 		uint ownerIndex = m_ownerIndex[uint(_owner)];
 
 		// make sure they're an owner
@@ -199,9 +199,9 @@ contract multiowned {
 		// determine what index the present sender is:
 		uint ownerIndex = m_ownerIndex[uint(msg.sender)];
 		// make sure they're an owner
-		if (ownerIndex == 0) return;
+		if (ownerIndex == 0) return false;
 
-		PendingState pending = m_pending[_operation];
+		PendingState storage pending = m_pending[_operation];
 		// if we're not yet working on this operation, switch over and reset the confirmation status.
 		if (pending.yetNeeded == 0) {
 			// reset count of confirmations needed.
@@ -228,6 +228,7 @@ contract multiowned {
 				// not enough: record that this owner in particular confirmed.
 				pending.yetNeeded--;
 				pending.ownersDone |= ownerIndexBit;
+				return false;
 			}
 		}
 	}
@@ -288,7 +289,7 @@ contract daylimit is multiowned {
 	// METHODS
 
 	// constructor - stores initial daily limit and records the present day's index.
-	constructor(uint _limit) {
+	constructor(uint _limit) public {
 		m_dailyLimit = _limit;
 		m_lastDay = today();
 	}
@@ -347,8 +348,8 @@ contract multisig {
 
 	// TODO: document
 	function changeOwner(address _from, address _to) external;
-	function execute(address _to, uint _value, bytes _data) external returns (bytes32);
-	function confirm(bytes32 _h) returns (bool);
+	function execute(address _to, uint _value, bytes calldata _data) external returns (bytes32);
+	function confirm(bytes32 _h) public returns (bool);
 }
 
 // usage:
@@ -369,7 +370,7 @@ contract Wallet is multisig, multiowned, daylimit {
 
 	// constructor - just pass on the owner array to the multiowned and
 	// the limit to daylimit
-	constructor(address[] _owners, uint _required, uint _daylimit) payable
+	constructor(address[] memory _owners, uint _required, uint _daylimit) public payable
 			multiowned(_owners, _required) daylimit(_daylimit) {
 	}
 
@@ -389,7 +390,7 @@ contract Wallet is multisig, multiowned, daylimit {
 	// If not, goes into multisig process. We provide a hash on return to allow the sender to provide
 	// shortcuts for the other confirmations (allowing them to avoid replicating the _to, _value
 	// and _data arguments). They still get the option of using them if they want, anyways.
-	function execute(address _to, uint _value, bytes _data) external onlyowner returns (bytes32 _r) {
+	function execute(address _to, uint _value, bytes calldata _data) external onlyowner returns (bytes32 _r) {
 		// first, take the opportunity to check that we're under the daily limit.
 		if (underLimit(_value)) {
 			emit SingleTransact(msg.sender, _value, _to, _data);
@@ -409,7 +410,7 @@ contract Wallet is multisig, multiowned, daylimit {
 
 	// confirm a transaction through just the hash. we use the previous transactions map, m_txs, in order
 	// to determine the body of the transaction from the hash provided.
-	function confirm(bytes32 _h) onlymanyowners(_h) returns (bool) {
+	function confirm(bytes32 _h) onlymanyowners(_h) public returns (bool) {
 		if (m_txs[_h].to != 0x0000000000000000000000000000000000000000) {
 			m_txs[_h].to.call.value(m_txs[_h].value)(m_txs[_h].data);
 			emit MultiTransact(msg.sender, _h, m_txs[_h].value, m_txs[_h].to, m_txs[_h].data);

@@ -5,11 +5,11 @@ import './ERC20Basic.sol';
 
 /**
  * @title TokenTimelock
- * @dev TokenTimelock is a token holder contract that will allow a 
+ * @dev TokenTimelock is a token holder contract that will allow a
  * beneficiary to extract the tokens after a given release time
  */
 contract TokenTimelock {
-  
+
   // ERC20 basic token contract being held
   ERC20Basic token;
 
@@ -33,7 +33,7 @@ contract TokenTimelock {
     require(msg.sender == beneficiary);
     require(now >= releaseTime);
 
-    uint amount = token.balanceOf(this);
+    uint amount = token.balanceOf(address(this));
     require(amount > 0);
 
     token.transfer(beneficiary, amount);

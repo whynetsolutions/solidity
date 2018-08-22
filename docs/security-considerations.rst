@@ -135,7 +135,7 @@ Sending and Receiving Ether
 - If a contract receives Ether (without a function being called), the fallback function is executed.
   If it does not have a fallback function, the Ether will be rejected (by throwing an exception).
   During the execution of the fallback function, the contract can only rely
-  on the "gas stipend" (2300 gas) being available to it at that time. This stipend is not enough to access storage in any way.
+  on the "gas stipend" it is passed (2300 gas) being available to it at that time. This stipend is not enough to access storage in any way.
   To be sure that your contract can receive Ether in that way, check the gas requirements of the fallback function
   (for example in the "details" section in Remix).
 
@@ -171,7 +171,8 @@ before they interact with your contract.
 
 Note that ``.send()`` does **not** throw an exception if the call stack is
 depleted but rather returns ``false`` in that case. The low-level functions
-``.call()``, ``.callcode()`` and ``.delegatecall()`` behave in the same way.
+``.call()``, ``.callcode()``, ``.delegatecall()`` and ``.staticcall()`` behave
+in the same way.
 
 tx.origin
 =========
@@ -203,7 +204,7 @@ Now someone tricks you into sending ether to the address of this attack wallet:
     pragma solidity >0.4.24;
 
     interface TxUserWallet {
-        function transferTo(address dest, uint amount) public;
+        function transferTo(address dest, uint amount) external;
     }
 
     contract TxAttackWallet {

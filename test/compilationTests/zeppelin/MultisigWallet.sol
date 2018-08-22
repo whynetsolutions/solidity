@@ -25,7 +25,7 @@ contract MultisigWallet is Multisig, Shareable, DayLimit {
    * @param _owners A list of owners.
    * @param _required The amount required for a transaction to be approved.
    */
-  constructor(address[] _owners, uint256 _required, uint256 _daylimit)
+  constructor(address[] memory _owners, uint256 _required, uint256 _daylimit)
     Shareable(_owners, _required)
     DayLimit(_daylimit) public { }
 
@@ -55,13 +55,13 @@ contract MultisigWallet is Multisig, Shareable, DayLimit {
    * @param _value The value to send
    * @param _data The data part of the transaction
    */
-  function execute(address _to, uint256 _value, bytes _data) external onlyOwner returns (bytes32 _r) {
+  function execute(address _to, uint256 _value, bytes calldata _data) external onlyOwner returns (bytes32 _r) {
     // first, take the opportunity to check that we're under the daily limit.
     if (underLimit(_value)) {
       emit SingleTransact(msg.sender, _value, _to, _data);
       // yes - just execute the call.
       if (!_to.call.value(_value)(_data)) {
-        throw;
+        revert();
       }
       return 0;
     }
@@ -83,7 +83,7 @@ contract MultisigWallet is Multisig, Shareable, DayLimit {
   function confirm(bytes32 _h) onlymanyowners(_h) public returns (bool) {
     if (txs[_h].to != address(0)) {
       if (!txs[_h].to.call.value(txs[_h].value)(txs[_h].data)) {
-        throw;
+        revert();
       }
       emit MultiTransact(msg.sender, _h, txs[_h].value, txs[_h].to, txs[_h].data);
       delete txs[_h];

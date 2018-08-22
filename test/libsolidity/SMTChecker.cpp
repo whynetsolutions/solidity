@@ -91,7 +91,7 @@ BOOST_AUTO_TEST_CASE(warn_on_struct)
 		pragma experimental ABIEncoderV2;
 		contract C {
 			struct A { uint a; uint b; }
-			function f() public pure returns (A) {
+			function f() public pure returns (A memory) {
 				return A({ a: 1, b: 2 });
 			}
 		}
@@ -110,7 +110,7 @@ BOOST_AUTO_TEST_CASE(simple_assert)
 			function f(uint a) public pure { assert(a == 2); }
 		}
 	)";
-	CHECK_WARNING(text, "Assertion violation happens here for");
+	CHECK_WARNING(text, "Assertion violation happens here");
 }
 
 BOOST_AUTO_TEST_CASE(simple_assert_with_require)

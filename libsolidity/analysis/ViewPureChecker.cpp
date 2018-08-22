@@ -287,16 +287,15 @@ void ViewPureChecker::endVisit(MemberAccess const& _memberAccess)
 	ASTString const& member = _memberAccess.memberName();
 	switch (_memberAccess.expression().annotation().type->category())
 	{
-	case Type::Category::Contract:
 	case Type::Category::Integer:
-		if (member == "balance" && !_memberAccess.annotation().referencedDeclaration)
+		if (member == "balance")
 			mutability = StateMutability::View;
 		break;
 	case Type::Category::Magic:
 	{
 		// we can ignore the kind of magic and only look at the name of the member
 		set<string> static const pureMembers{
-			"encode", "encodePacked", "encodeWithSelector", "encodeWithSignature", "data", "sig", "blockhash"
+			"encode", "encodePacked", "encodeWithSelector", "encodeWithSignature", "decode", "data", "sig", "blockhash"
 		};
 		if (!pureMembers.count(member))
 			mutability = StateMutability::View;
