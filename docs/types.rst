@@ -646,16 +646,18 @@ Forced data location:
 Arrays
 ------
 
-Arrays can have a compile-time fixed size or they can be dynamic.
-For storage arrays, the element type can be arbitrary (i.e. also other
-arrays, mappings or structs). For memory arrays, it cannot be a mapping and
-has to be an ABI type if it is an argument of a publicly-visible function.
+Arrays can have a compile-time fixed size or a dynamic size. For arrays stored
+in the ``storage`` data location, the element type is arbitrary (i.e., also
+other ``array``, ``mapping`` or ``struct`` types). For arrays stored in the
+``memory`` data location, you cannot assign a ``mapping`` type and the type has
+to be an :ref:`ABI type <ABI>` if it is an argument of a publicly-visible
+function.
 
 An array of fixed size ``k`` and element type ``T`` is written as ``T[k]``,
 an array of dynamic size as ``T[]``. As an example, an array of 5 dynamic
 arrays of ``uint`` is ``uint[][5]`` (note that the notation is reversed when
 compared to some other languages). To access the second uint in the
-third dynamic array, you use ``x[2][1]`` (indices are zero-based and
+third dynamic array, you use s``x[2][1]`` (indices are zero-based and
 access works in the opposite way of the declaration, i.e. ``x[2]``
 shaves off one level in the type from the right).
 
