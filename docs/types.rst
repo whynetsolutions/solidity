@@ -657,7 +657,7 @@ An array of fixed size ``k`` and element type ``T`` is written as ``T[k]``,
 an array of dynamic size as ``T[]``. As an example, an array of 5 dynamic
 arrays of ``uint`` is ``uint[][5]`` (note that the notation is reversed when
 compared to some other languages). To access the second uint in the
-third dynamic array, you use s``x[2][1]`` (indices are zero-based and
+third dynamic array, you use ``x[2][1]`` (indices are zero-based and
 access works in the opposite way of the declaration, i.e. ``x[2]``
 shaves off one level in the type from the right).
 
